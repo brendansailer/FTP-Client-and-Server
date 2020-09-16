@@ -13,10 +13,12 @@
 #define MAX_LINE 4096
 
 void server(int);
+void complete_request(int, char []);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
 			int port = atoi(argv[1]);
+			printf("Waiting for connections on port %d\n", port);
 			server(port);
 		} else {
 			perror("useage: myftpd (port)");
@@ -65,6 +67,7 @@ void server(int port){
 			perror("simplex-talk: accept");
 			exit(1);
 		}
+		printf("Connection established.\n");
 		while (1){
 			if((len=recv(new_s, buf, sizeof(buf), 0))==-1){
 				perror("Server Received Error!");
@@ -73,7 +76,8 @@ void server(int port){
 			else if(len==0){
 				break;
 			}
-			printf("TCP Server Received:%s", buf);
+			printf("TCP Server Received: %s", buf);
+			complete_request(new_s, buf);
 		}
 
 		printf("Client finishes, close the connection!\n");
@@ -81,4 +85,23 @@ void server(int port){
 	}
 
 	close(s);
+}
+
+/* Complete the task that was requested */
+void complete_request(int s, char buf[]){
+	if(strcmp(buf, "LS\n") == 0){
+		printf("We are in the LS case\n");
+	}
+	else if(strcmp(buf, "MKDIR\n") == 0){
+		printf("We are in the LS case\n");
+		//char buf[BUFSIZ];
+		char *buf = "testing\n";
+		int len = strlen(buf) + 1;
+		if(send(s, buf, len, 0)==-1){
+			perror("Server response error");
+			exit(1);
+		}
+	} else {
+		printf("Bad operation - not recognized\n");
+	}
 }

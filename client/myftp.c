@@ -17,6 +17,7 @@ int main(int argc, char * argv[]){
 	if(argc == 3) {
 		char *host = argv[1];
 		int port = atoi(argv[2]);
+		printf("Connecting to %s on port %d", host, port);
 		client(host, port);
 	}
 	else {
@@ -59,6 +60,7 @@ void client(char* host, int port){
 		exit(1);
 	}
 
+	printf("Connection established.\n");
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)) {
 		buf[MAX_LINE-1] = '\0';
@@ -71,6 +73,15 @@ void client(char* host, int port){
 			perror("client send error!");
 			exit(1);
 		}
+
+		int len;
+		char reply[BUFSIZ];
+		if((len=recv(s, reply, sizeof(reply), 0))==-1){
+			perror("myftp: error receiving reply");
+			exit(1);
+		}
+
+		printf("Reply: %d", reply);
 	}
 
 	close(s); 
