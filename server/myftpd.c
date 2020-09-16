@@ -9,11 +9,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#define SERVER_PORT 41700
 #define MAX_PENDING 5
 #define MAX_LINE 4096
 
-int main() {
+void server(int);
+
+int main(int argc, char * argv[]) {
+		if(argc == 2){
+			int port = atoi(argv[1]);
+			server(port);
+		} else {
+			perror("useage: myftpd (port)");
+			exit(1);
+		}
+}
+
+void server(int port){
 	struct sockaddr_in sin, client_addr;
 	char buf[MAX_LINE];
 	int len, addr_len;
@@ -23,7 +34,7 @@ int main() {
 	bzero((char *)&sin, sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = INADDR_ANY;
-	sin.sin_port = htons(SERVER_PORT);
+	sin.sin_port = htons(port);
 
 	/* setup passive open */
 	if((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
@@ -70,5 +81,4 @@ int main() {
 	}
 
 	close(s);
-	return 0; 
 }
