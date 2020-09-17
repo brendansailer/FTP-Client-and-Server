@@ -92,12 +92,12 @@ void server(int port){
 
 /* Complete the task that was requested */
 void complete_request(int s, char buf[]){
-	char *token = strtok(buf, " ");
-	token = strtok(NULL, " ");
-	printf(token);
+	char *command = strtok(buf, " ");
+	char *arg1 = strtok(NULL, " ");
+	printf(command, arg1);
 		
 	char reply[BUFSIZ];
-	if(strcmp(buf, "LS\n") == 0){
+	if(strcmp(command, "LS\n") == 0){
 		printf("We are in the LS case\n");
 		FILE *fp = popen("ls -l", "r");
 		if(fp == NULL){
@@ -110,11 +110,11 @@ void complete_request(int s, char buf[]){
 		} */
 		fread(reply, sizeof(char), BUFSIZ, fp);
 	}
-	else if(strcmp(buf, "MKDIR\n") == 0){
+	else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
 		
 		char command[BUFSIZ];
-		sprintf(command, "mkdir %s", token);
+		sprintf(command, "mkdir %s", arg1);
 		FILE *fp = popen(command, "r");
 		if(fp == NULL){
 			printf("LS error");
