@@ -62,12 +62,13 @@ void client(char* host, int port){
 
 	printf("Connection established.\n");
 	/* main loop: get and send lines of text */
-	while (fgets(buf, sizeof(buf), stdin)) {
+	while (fgets(buf, sizeof(buf), stdin)){
 		buf[MAX_LINE-1] = '\0';
 		if (!strncmp(buf, "Exit",4)){
 			printf("Good Bye!\n");
 			break;
 		}
+		printf("SENDING: %s", buf);
 		len = strlen(buf) + 1;
 		if(send(s, buf, len, 0)==-1){
 			perror("client send error!");
@@ -81,7 +82,9 @@ void client(char* host, int port){
 			exit(1);
 		}
 
-		printf("Reply: %d", reply);
+		printf("Reply: %s\n", reply);
+		bzero((char *)&buf, sizeof(buf));
+		bzero((char *)&reply, sizeof(reply));
 	}
 
 	close(s); 
