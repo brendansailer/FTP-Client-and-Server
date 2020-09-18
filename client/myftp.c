@@ -69,6 +69,9 @@ void client(char* host, int port){
 			break;
 		}
 
+		char *command = strtok(buf, " ");
+		char *arg1 = strtok(NULL, " ");
+
 		if(strcmp(buf, "MKDIR\n") == 0){
 			send_fn(s, buf);
 			recv_fn(s, reply);
