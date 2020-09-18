@@ -68,11 +68,18 @@ void client(char* host, int port){
 			printf("Good Bye!\n");
 			break;
 		}
-		printf("SENDING: %s", buf);
-		send_fn(s, buf);
 
-		recv_fn(s, reply);
-		printf("Reply: %s\n", reply);
+		if(strcmp(buf, "MKDIR\n") == 0){
+
+		} else if(strcmp(buf, "RMDIR\n") == 0){
+		
+		} else {
+			printf("SENDING: %s", buf);
+			send_fn(s, buf);
+
+			recv_fn(s, reply);
+			printf("Reply: %s\n", reply);
+		}
 		
 		bzero((char *)&buf, sizeof(buf));
 		bzero((char *)&reply, sizeof(reply));
