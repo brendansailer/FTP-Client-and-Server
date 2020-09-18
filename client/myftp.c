@@ -70,7 +70,15 @@ void client(char* host, int port){
 		}
 
 		if(strcmp(buf, "MKDIR\n") == 0){
-
+			send_fn(s, buf);
+			recv_fn(s, reply);
+			if(strcmp(reply, "-2") == 0){
+				printf("The directory already exists on server\n");
+			} else if(strcmp(reply, "-1") == 0){
+				printf("Error in making directory\n");
+			} else{
+				printf("The directory was successfully made\n");
+			}
 		} else if(strcmp(buf, "RMDIR\n") == 0){
 		
 		} else {

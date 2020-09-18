@@ -17,6 +17,7 @@ void server(int);
 void complete_request(int, char []);
 void ls(char []);
 void mkdir(char *, char []);
+void rmdir(char *, char []);
 void send_fn(int, char [], int);
 
 int main(int argc, char * argv[]) {
@@ -108,6 +109,7 @@ void complete_request(int s, char buf[]){
 		mkdir(arg1, reply);
 	} else if(strcmp(command, "RMDIR") == 0){
 		printf("We are in the RMDIR case\n");
+		rmdir(arg1, reply);
 	} else if(strcmp(command, "DN") == 0){
 		printf("We are in the DN case\n");
 	} else if(strcmp(command, "UP") == 0){
@@ -153,6 +155,10 @@ void mkdir(char *arg1, char reply[]){
 	}
 
 	sprintf(reply, "1");
+}
+
+void rmdir(char *arg1, char reply[]){
+	
 }
 
 void send_fn(int socket, char buf[], int len){
