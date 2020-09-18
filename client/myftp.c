@@ -9,9 +9,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#define MAX_LINE 4096
 
 void client(char*, int);
+void send_fn(int, char []);
+void recv_fn(int, char []);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -27,12 +28,11 @@ int main(int argc, char * argv[]){
 }
 
 void client(char* host, int port){
-	FILE *fp;
 	struct hostent *hp;
 	struct sockaddr_in sin;
-	char buf[MAX_LINE];
+	char buf[BUFSIZ];
+	char reply[BUFSIZ];
 	int s;
-	int len;
 
 	/* translate host name into peer's IP address */
 	hp = gethostbyname(host);
@@ -63,29 +63,34 @@ void client(char* host, int port){
 	printf("Connection established.\n");
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)){
-		buf[MAX_LINE-1] = '\0';
+		buf[BUFSIZ-1] = '\0';
 		if (!strncmp(buf, "Quit", 4)){
 			printf("Good Bye!\n");
 			break;
 		}
 		printf("SENDING: %s", buf);
-		len = strlen(buf) + 1;
-		if(send(s, buf, len, 0)==-1){
-			perror("client send error!");
-			exit(1);
-		}
+		send_fn(s, buf);
 
-		int len;
-		char reply[BUFSIZ];
-		if((len=recv(s, reply, sizeof(reply), 0))==-1){
-			perror("myftp: error receiving reply");
-			exit(1);
-		}
-
+		recv_fn(s, reply);
 		printf("Reply: %s\n", reply);
+		
 		bzero((char *)&buf, sizeof(buf));
 		bzero((char *)&reply, sizeof(reply));
 	}
 
 	close(s); 
+}
+
+void send_fn(int socket, char buf[]){
+	if(send(socket, buf, strlen(buf)+1, 0)==-1){
+		printf("Client send error");
+	}
+}
+
+void recv_fn(int socket, char reply[]){
+	int length;
+	if((length=recv(socket, reply, sizeof(reply), 0))==-1){
+		perror("myftp: error receiving reply");
+	}
+	printf(reply);
 }

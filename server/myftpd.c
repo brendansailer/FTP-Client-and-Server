@@ -110,6 +110,7 @@ void complete_request(int s, char buf[]){
 		printf("Bad operation - not recognized\n");
 	}
 	send_fn(s, reply, sizeof(reply));
+	printf(reply);
 	bzero((char *) &reply, sizeof(reply));
 }
 
@@ -151,6 +152,5 @@ void mkdir(char *arg1, char reply[]){
 void send_fn(int socket, char buf[], int len){
 	if(send(socket, buf, len, 0)==-1){
 		printf("Server response error");
-		exit(1);
 	}
 }
