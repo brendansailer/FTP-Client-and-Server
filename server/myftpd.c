@@ -9,11 +9,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <dirent.h>
 #define MAX_PENDING 5
 #define MAX_LINE 4096
 
 void server(int);
 void complete_request(int, char []);
+void ls(char []);
+void mkdir(char *, char []);
 void send_fn(int, char [], int);
 
 int main(int argc, char * argv[]) {
@@ -94,38 +97,55 @@ void server(int port){
 void complete_request(int s, char buf[]){
 	char *command = strtok(buf, " ");
 	char *arg1 = strtok(NULL, " ");
-	printf(command, arg1);
+	printf("Received command: %s with arg1: %s\n", command, arg1);
 		
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		printf("We are in the LS case\n");
-		FILE *fp = popen("ls -l", "r");
-		if(fp == NULL){
-			printf("LS error");
-			exit(1);
-		}
-		/* TODO - send the total size per directions */
-		/*while(fgets(reply, BUFSIZ, fp) != NULL){
-			printf(reply);
-		} */
-		fread(reply, sizeof(char), BUFSIZ, fp);
-	}
-	else if(strcmp(command, "MKDIR") == 0){
+		ls(reply);
+	} else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
-		
-		char command[BUFSIZ];
-		sprintf(command, "mkdir %s", arg1);
-		FILE *fp = popen(command, "r");
-		if(fp == NULL){
-			printf("LS error");
-			exit(1);
-		}
-		fread(reply, sizeof(char), BUFSIZ, fp);
-	}
-	else {
+		mkdir(arg1, reply);
+	} else {
 		printf("Bad operation - not recognized\n");
 	}
 	send_fn(s, reply, sizeof(reply));
+	bzero((char *) &reply, sizeof(reply));
+}
+
+void ls(char reply[]){
+	FILE *fp = popen("ls -l", "r");
+	if(fp == NULL){
+		printf("LS error");
+	}
+	/* TODO - send the total size per directions */
+	/*while(fgets(reply, BUFSIZ, fp) != NULL){
+		printf(reply);
+	} */
+	fread(reply, sizeof(char), BUFSIZ, fp);
+}
+
+void mkdir(char *arg1, char reply[]){
+	/* Check if the directory already exists */
+	DIR* dir = opendir(arg1);
+	if(dir){ // Dir already exists
+		printf("Directory already exists");
+		sprintf(reply, "-2");
+		closedir(dir);
+		return;
+	}
+		
+	char buffer[BUFSIZ];
+	sprintf(buffer, "mkdir %s", arg1);
+	FILE *fp = popen(buffer, "r");
+		
+	if(fp == NULL){ // Error making dir
+		printf("MKDIR error");
+		sprintf(reply, "-2");
+		return;
+	}
+
+	sprintf(reply, "1");
 }
 
 void send_fn(int socket, char buf[], int len){

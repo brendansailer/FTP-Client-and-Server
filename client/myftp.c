@@ -64,7 +64,7 @@ void client(char* host, int port){
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)){
 		buf[MAX_LINE-1] = '\0';
-		if (!strncmp(buf, "Exit",4)){
+		if (!strncmp(buf, "Quit", 4)){
 			printf("Good Bye!\n");
 			break;
 		}
