@@ -106,6 +106,12 @@ void complete_request(int s, char buf[]){
 	} else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
 		mkdir(arg1, reply);
+	} else if(strcmp(command, "RMDIR") == 0){
+		printf("We are in the RMDIR case\n");
+	} else if(strcmp(command, "DN") == 0){
+		printf("We are in the DN case\n");
+	} else if(strcmp(command, "UP") == 0){
+		printf("We are in the UP case\n");
 	} else {
 		printf("Bad operation - not recognized\n");
 	}
