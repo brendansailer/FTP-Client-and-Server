@@ -6,20 +6,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <dirent.h>
+#include <unistd.h>
 #define MAX_PENDING 5
 #define MAX_LINE 4096
 
 void server(int);
-void complete_request(int, char []);
+void complete_request(int, char *);
 void ls(char []);
-void mkdir(char *, char []);
-void rmdir(int, char *, char []);
-void send_fn(int, char [], int);
-void recv_fn(int socket, char buf[]);
+void mk_dir(char *, char *);
+void rm_dir(int, char *, char*);
+void send_fn(int, char*);
+void recv_fn(int socket, char*);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -52,7 +54,7 @@ void server(int port){
 
 	// set socket option
 	// TODO - the code he gave us was wrong
-	int opt = 5000;
+	int opt = 1;
 	if((setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)& opt, sizeof(int)))<0){
 		perror ("simplex-talk:setscokt");
 		exit(1);
@@ -96,27 +98,27 @@ void server(int port){
 }
 
 /* Complete the task that was requested */
-void complete_request(int s, char buf[]){
+void complete_request(int s, char * buf){
 	char *command = strtok(buf, " ");
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		printf("We are in the LS case\n");
 		ls(reply);
-		send_fn(s, reply, sizeof(reply));
+		send_fn(s, reply);
 		printf("ls replying with: %s\n", reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
 		char *arg1 = strtok(NULL, " \n");
-		mkdir(arg1, reply);
-		send_fn(s, reply, sizeof(reply));
+		mk_dir(arg1, reply);
+		send_fn(s, reply);
 		printf("mkdir replying with: %s\n", reply);
 
 	} else if(strcmp(command, "RMDIR") == 0){
 		printf("We are in the RMDIR case\n");
 		char *arg1 = strtok(NULL, " \n");
-		rmdir(s, arg1, reply);
+		rm_dir(s, arg1, reply);
 
 	} else if(strcmp(command, "DN") == 0){
 		printf("We are in the DN case\n");
@@ -141,9 +143,9 @@ void ls(char reply[]){
 	fread(reply, sizeof(char), BUFSIZ, fp);
 }
 
-void mkdir(char *arg1, char reply[]){
+void mk_dir(char *arg1, char *reply){
 	/* Check if the directory already exists */
-	printf("Name: %s %d\n", arg1, strlen(arg1));
+	printf("Directory Name: %s\n", arg1);
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
 		printf("Directory already exists\n");
@@ -166,11 +168,15 @@ void mkdir(char *arg1, char reply[]){
 	sprintf(reply, "1");
 }
 
-void rmdir(int s, char *arg1, char reply[]){
+void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
-	DIR* dir = opendir(arg1);
-	if(!dir){
+	char dest[100] = {"./"};
+	strcat(dest, arg1);
+	printf(dest);
+	DIR* dir = opendir(dest);
+	if(dir == NULL){
 		sprintf(reply, "-1");
+		printf("DOES NOT EXIST\n");
 		closedir(dir);
 		return;
 	}
@@ -189,7 +195,8 @@ void rmdir(int s, char *arg1, char reply[]){
 	} else {
 		sprintf(reply, "-2"); // not empty
 	}
-	send_fn(s, reply, sizeof(reply));
+	printf("Reply sent\n");
+	send_fn(s, reply);
 
 	// Get confirmation of delete from client	
 	bzero((char *)&buffer, sizeof(buffer));
@@ -198,23 +205,28 @@ void rmdir(int s, char *arg1, char reply[]){
 
 	if(strcmp(buffer, "Yes") == 0){
 		printf("delete the dir\n");
-		// TODO - delete the dir
-		sprintf(reply, "-1"); // not empty
-		//send_fn(s, reply, sizeof(reply));
-		//printf("rmdir replying with: %s\n", reply);
+		// Delete the dir
+		if(rmdir(arg1) >= 0){
+			sprintf(reply, "1"); // delete success
+		} else {
+			sprintf(reply, "-1"); // delete failed
+		}
+		send_fn(s, reply);
+		printf("rmdir replying with: %s\n", reply);
 	} else { // Don't delete the directory
 		printf("do nothing\n");
 		return;
 	}
 }
 
-void send_fn(int socket, char buf[], int len){
-	if(send(socket, buf, len, 0)==-1){
+void send_fn(int socket, char *buf){
+	if(send(socket, buf, strlen(buf)+1, 0)==-1){
 		printf("Server response error");
 	}
+	printf("send_fn: %s\n", buf);
 }
 
-void recv_fn(int socket, char buf[]){
+void recv_fn(int socket, char *buf){
 	int len;
 	if((len=recv(socket, buf, sizeof(buf), 0))==-1){
 			perror("Server Received Error!");
