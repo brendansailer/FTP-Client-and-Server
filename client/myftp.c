@@ -11,8 +11,10 @@
 #include <netdb.h>
 
 void client(char*, int);
-void send_fn(int, char []);
-void recv_fn(int, char []);
+void mkdir(int, char *, char*, char*);
+void rmdir(int, char *, char*);
+void send_fn(int, char*);
+void recv_fn(int, char*);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -64,32 +66,34 @@ void client(char* host, int port){
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)){
 		buf[BUFSIZ-1] = '\0';
-		if (!strncmp(buf, "Quit", 4)){
+		if (!strncmp(buf, "QUIT", 4)){
 			printf("Good Bye!\n");
 			break;
 		}
 
 		char *command = strtok(buf, " ");
-		char *arg1 = strtok(NULL, " ");
-
-		if(strcmp(buf, "MKDIR\n") == 0){
+		printf(command);
+		if(strcmp(command, "MKDIR") == 0){
+			char *arg1 = strtok(NULL, " ");
+			mkdir(s, arg1, command, reply);
+			printf("End of mkdir\n");
+		} else if(strcmp(command, "RMDIR") == 0){
+			char *arg1 = strtok(NULL, " ");
+			rmdir(s, arg1, command);
+			printf("End of rmdir\n");
+		} else if(strcmp(command, "LS")){
 			send_fn(s, buf);
 			recv_fn(s, reply);
-			if(strcmp(reply, "-2") == 0){
-				printf("The directory already exists on server\n");
-			} else if(strcmp(reply, "-1") == 0){
-				printf("Error in making directory\n");
-			} else{
-				printf("The directory was successfully made\n");
-			}
-		} else if(strcmp(buf, "RMDIR\n") == 0){
-		
-		} else {
-			printf("SENDING: %s", buf);
-			send_fn(s, buf);
+			printf("%s", reply);
+		} else if(strcmp(command, "\n") == 0){
+				// do nothing on blank input
+	  } else {
+			//printf("SENDING: %s", buf);
+			//send_fn(s, buf);
 
-			recv_fn(s, reply);
-			printf("Reply: %s\n", reply);
+			//recv_fn(s, reply);
+			//printf("Reply: %s\n", reply);
+			printf("Unknown Operation\n");
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -99,16 +103,83 @@ void client(char* host, int port){
 	close(s); 
 }
 
-void send_fn(int socket, char buf[]){
+void mkdir(int s, char *arg1, char *command, char *reply){
+	char buf[BUFSIZ];
+	// Check if no directory was passed
+	if(strcmp(arg1, "") == 0){
+		printf("Please pass a directory name\n");
+		return;
+	}
+	sprintf(buf, "%s %s", command, arg1);
+	send_fn(s, buf);
+	recv_fn(s, reply);
+	printf("Got the reply: %s \n", reply);
+	if(strcmp(reply, "-2") == 0){
+		printf("The directory already exists on server\n");
+	} else if(strcmp(reply, "-1") == 0){
+		printf("Error in making directory\n");
+	} else{
+		printf("The directory was successfully made\n");
+	}
+}
+
+void rmdir(int s, char *arg1, char *command){
+	char buf[BUFSIZ];
+	char reply[BUFSIZ];
+	// Check if no directory was passed
+	if(strcmp(arg1, "") == 0){
+		printf("Please pass a directory name\n");
+		return;
+	}
+	sprintf(buf, "%s %s", command, arg1);
+	send_fn(s, buf);
+	recv_fn(s, reply);
+	printf("Got the reply: %s\n", reply);
+	if(strcmp(reply, "-2") == 0){
+		printf("The directory is not empty\n");
+		return;
+	} else if(strcmp(reply, "-1") == 0){
+		printf("The directory does not exist on the server\n");
+		return;
+	} else{
+		printf("Confirm delete? Yes/No: ");
+	}
+	bzero((char *)&buf, sizeof(buf));
+	bzero((char *)&reply, sizeof(reply));
+			
+	// Ask the user for confirmation of delete
+	char str[5];
+	scanf("%s", str);
+	if(strcmp(str, "Yes") == 0){ // Send Yes
+		printf("Yes Case\n");
+		sprintf(buf, "Yes");
+		send_fn(s, buf);
+		printf("Sent yes - waiting for reply\n");
+		recv_fn(s, reply);
+		printf("Got the reply: %s\n", reply);
+		if(strcmp(reply, "1") == 0){
+			printf("Directory deleted\n");
+		} else if(strcmp(reply, "-1") == 0){
+			printf("Failed to delete directory\n");
+		}
+	} else { // Send No
+		printf("Delete abandoned by user!\n");
+		sprintf(buf, "No");
+		send_fn(s, buf);
+	}
+}
+
+void send_fn(int socket, char *buf){
 	if(send(socket, buf, strlen(buf)+1, 0)==-1){
 		printf("Client send error");
 	}
 }
 
-void recv_fn(int socket, char reply[]){
+void recv_fn(int socket, char *reply){
 	int length;
 	if((length=recv(socket, reply, sizeof(reply), 0))==-1){
 		perror("myftp: error receiving reply");
+		exit(1);
 	}
-	printf(reply);
+	printf("The length is: %d\n", length);
 }

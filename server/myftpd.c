@@ -6,19 +6,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <dirent.h>
+#include <unistd.h>
 #define MAX_PENDING 5
 #define MAX_LINE 4096
 
 void server(int);
-void complete_request(int, char []);
-void ls(char []);
-void mkdir(char *, char []);
-void rmdir(char *, char []);
-void send_fn(int, char [], int);
+void complete_request(int, char *);
+void ls(char *);
+void mk_dir(char *, char *);
+void rm_dir(int, char *, char*);
+void send_fn(int, char*);
+void recv_fn(int socket, char*);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -51,7 +54,7 @@ void server(int port){
 
 	// set socket option
 	// TODO - the code he gave us was wrong
-	int opt = 5000;
+	int opt = 1;
 	if((setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)& opt, sizeof(int)))<0){
 		perror ("simplex-talk:setscokt");
 		exit(1);
@@ -95,21 +98,28 @@ void server(int port){
 }
 
 /* Complete the task that was requested */
-void complete_request(int s, char buf[]){
+void complete_request(int s, char * buf){
 	char *command = strtok(buf, " ");
-	char *arg1 = strtok(NULL, " ");
-	printf("Received command: %s with arg1: %s\n", command, arg1);
-		
+	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		printf("We are in the LS case\n");
 		ls(reply);
+		send_fn(s, reply);
+		printf("ls replying with: %s\n", reply);
+
 	} else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
-		mkdir(arg1, reply);
+		char *arg1 = strtok(NULL, " \n");
+		mk_dir(arg1, reply);
+		send_fn(s, reply);
+		printf("mkdir replying with: %s\n", reply);
+
 	} else if(strcmp(command, "RMDIR") == 0){
 		printf("We are in the RMDIR case\n");
-		rmdir(arg1, reply);
+		char *arg1 = strtok(NULL, " \n");
+		rm_dir(s, arg1, reply);
+
 	} else if(strcmp(command, "DN") == 0){
 		printf("We are in the DN case\n");
 	} else if(strcmp(command, "UP") == 0){
@@ -117,15 +127,14 @@ void complete_request(int s, char buf[]){
 	} else {
 		printf("Bad operation - not recognized\n");
 	}
-	send_fn(s, reply, sizeof(reply));
-	printf(reply);
+	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
 }
 
-void ls(char reply[]){
+void ls(char *reply){
 	FILE *fp = popen("ls -l", "r");
 	if(fp == NULL){
-		printf("LS error");
+		printf("LS error\n");
 	}
 	/* TODO - send the total size per directions */
 	/*while(fgets(reply, BUFSIZ, fp) != NULL){
@@ -134,35 +143,90 @@ void ls(char reply[]){
 	fread(reply, sizeof(char), BUFSIZ, fp);
 }
 
-void mkdir(char *arg1, char reply[]){
+void mk_dir(char *arg1, char *reply){
 	/* Check if the directory already exists */
+	printf("Directory Name: %s\n", arg1);
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
-		printf("Directory already exists");
+		printf("Directory already exists\n");
 		sprintf(reply, "-2");
 		closedir(dir);
 		return;
 	}
+	closedir(dir);
 		
 	char buffer[BUFSIZ];
 	sprintf(buffer, "mkdir %s", arg1);
 	FILE *fp = popen(buffer, "r");
 		
 	if(fp == NULL){ // Error making dir
-		printf("MKDIR error");
-		sprintf(reply, "-2");
+		printf("MKDIR error\n");
+		sprintf(reply, "-1");
 		return;
 	}
 
 	sprintf(reply, "1");
 }
 
-void rmdir(char *arg1, char reply[]){
-	
+void rm_dir(int s, char *arg1, char *reply){
+	/* Check if directory exists */
+	char dest[100] = {"./"};
+	strcat(dest, arg1);
+	DIR* dir = opendir(dest);
+	if(dir == NULL){
+		sprintf(reply, "-1");
+		send_fn(s, reply);
+		printf("Directory does not exist\n");
+		closedir(dir);
+		return;
+	}
+	closedir(dir);
+
+	/* Check if the directory is empty */
+	char buffer[BUFSIZ];
+	sprintf(buffer, "ls %s", arg1);
+	FILE *fp = popen(buffer, "r");
+	if(fp == NULL){
+		printf("LS error\n");
+	}
+	fread(reply, sizeof(char), BUFSIZ, fp);
+	if(strcmp(reply, "") == 0){
+		sprintf(reply, "1"); // empty
+	} else {
+		sprintf(reply, "-2"); // not empty
+	}
+	printf("Reply sent\n");
+	send_fn(s, reply);
+
+	// Get confirmation of delete from client	
+	bzero((char *)&buffer, sizeof(buffer));
+	recv_fn(s, buffer);
+	printf("Got the confirmation: %s\n", buffer);
+
+	if(strcmp(buffer, "Yes") == 0){
+		printf("delete the dir\n");
+		// Delete the dir
+		if(rmdir(arg1) >= 0){
+			sprintf(reply, "1"); // delete success
+		} else {
+			sprintf(reply, "-1"); // delete failed
+		}
+		printf("rmdir replying with: %s\n", reply);
+		send_fn(s, reply);
+	} else { // Don't delete the directory
+		printf("do nothing\n");
+	}
 }
 
-void send_fn(int socket, char buf[], int len){
-	if(send(socket, buf, len, 0)==-1){
+void send_fn(int socket, char *buf){
+	if(send(socket, buf, strlen(buf)+1, 0)==-1){
 		printf("Server response error");
+	}
+}
+
+void recv_fn(int socket, char *buf){
+	int len;
+	if((len=recv(socket, buf, sizeof(buf), 0))==-1){
+			perror("Server Received Error!");
 	}
 }
