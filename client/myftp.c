@@ -164,6 +164,8 @@ void rmdir(int s, char *arg1, char *command){
 		sprintf(buf, "No");
 		send_fn(s, buf);
 	}
+	// Consume the '\n' after the Yes/No confirmation
+	fgets(buf, sizeof(buf), stdin);
 }
 
 void download(int socket, char *command){
