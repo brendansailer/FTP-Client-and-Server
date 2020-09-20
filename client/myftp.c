@@ -13,6 +13,7 @@
 void client(char*, int);
 void mkdir(int, char *, char*, char*);
 void rmdir(int, char *, char*);
+void rmfile(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int, char*);
 void download(int, char *);
@@ -82,6 +83,10 @@ void client(char* host, int port){
 			char *arg1 = strtok(NULL, " ");
 			rmdir(s, arg1, command);
 			printf("End of rmdir\n");
+		} else if(strcmp(command, "RM") == 0){
+			char *arg1 = strtok(NULL, " ");
+			rmfile(s, arg1, command);
+			printf("End of rm\n");
 		} else if(strcmp(command, "LS") == 0){
 			send_fn(s, buf);
 			recv_fn(s, reply);
@@ -100,10 +105,54 @@ void client(char* host, int port){
 	close(s); 
 }
 
+void rmfile(int s, char *arg1, char *command){
+	char buf[BUFSIZ];
+	char reply[BUFSIZ];
+	// Check if no file was passed
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
+		printf("Please pass a file name\n");
+		return;
+	}
+	sprintf(buf, "%s %s", command, arg1);
+	send_fn(s, buf);
+	recv_fn(s, reply);
+	if(strcmp(reply, "-1") == 0){
+		printf("The file does not exist on the server\n");
+		return;
+	} else{
+		printf("Confirm delete? Yes/No: ");
+	}
+	bzero((char *)&buf, sizeof(buf));
+	bzero((char *)&reply, sizeof(reply));
+	
+	// Ask the user for confirmation of delete
+	char str[5];
+	scanf("%s", str);
+	if(strcmp(str, "Yes") == 0){ // Send Yes
+		printf("Yes Case\n");
+		sprintf(buf, "Yes");
+		send_fn(s, buf);
+		printf("Sent yes - waiting for reply\n");
+		recv_fn(s, reply);
+		printf("Got the reply: %s\n", reply);
+		if(strcmp(reply, "1") == 0){
+			printf("File deleted\n");
+		} else if(strcmp(reply, "-1") == 0){
+			printf("Faild to delete file\n");
+		}
+	} else { // Send No
+		printf("Delete abandoned by user!\n");
+		sprintf(buf, "No");
+		send_fn(s, buf);
+	}
+	// Consume the '\n' after the Yes/No confirmation
+	fgets(buf, sizeof(buf), stdin);
+}
+
 void mkdir(int s, char *arg1, char *command, char *reply){
 	char buf[BUFSIZ];
 	// Check if no directory was passed
-	if(strcmp(arg1, "") == 0){
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
 		return;
 	}

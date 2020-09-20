@@ -20,6 +20,7 @@ void complete_request(int, char *);
 void ls(char *);
 void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
+void rm_file(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
 void download(int, char *);
@@ -122,6 +123,12 @@ void complete_request(int s, char * buf){
 		char *arg1 = strtok(NULL, " \n");
 		rm_dir(s, arg1, reply);
 
+	} else if(strcmp(command, "RM") == 0){
+		printf("We are in the RM case\n");
+		char *arg1 = strtok(NULL, " \n");
+		rm_file(s, arg1, reply);
+
+	
 	} else if(strcmp(command, "DN") == 0){
 	    char *arg1          = strtok(NULL, " ");
 	    printf("Received command: %s with arg1: %s\n", command, arg1);
@@ -142,6 +149,43 @@ void complete_request(int s, char * buf){
 	}
 	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
+}
+
+void rm_file(int s, char *arg1, char *reply){
+	/* Check if file exists */
+	char dest[100] = {"./"};
+	strcat(dest, arg1);
+	FILE *fp = fopen(dest, "r");
+	if(fp == NULL){
+		sprintf(reply, "-1");
+		send_fn(s, reply);
+		printf("File does not exist\n");
+		return;
+	}
+	fclose(fp);
+	// Confirm file exists
+	sprintf(reply, "1");
+	send_fn(s, reply);
+	
+	// Get confirmation of delete from client	
+	char buffer[BUFSIZ];
+	bzero((char *)&buffer, sizeof(buffer));
+	recv_fn(s, buffer);
+	printf("Got the confirmation: %s\n", buffer);
+
+	if(strcmp(buffer, "Yes") == 0){
+		printf("delete the file\n");
+		// Delete the file
+		if(remove(dest) >= 0){
+			sprintf(reply, "1"); // delete success
+		} else {
+			sprintf(reply, "-1"); // delete failed
+		}
+		printf("rm replying with: %s\n", reply);
+		send_fn(s, reply);
+	} else { // Don't delete the directory
+		printf("do nothing\n");
+	}
 }
 
 void ls(char *reply){
@@ -220,7 +264,7 @@ void rm_dir(int s, char *arg1, char *reply){
 	if(strcmp(buffer, "Yes") == 0){
 		printf("delete the dir\n");
 		// Delete the dir
-		if(rmdir(arg1) >= 0){
+		if(rmdir(dest) >= 0){
 			sprintf(reply, "1"); // delete success
 		} else {
 			sprintf(reply, "-1"); // delete failed
