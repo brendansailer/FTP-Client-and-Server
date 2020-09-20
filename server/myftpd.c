@@ -22,6 +22,7 @@ void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
+void download(int, char *);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -99,7 +100,8 @@ void server(int port){
 
 /* Complete the task that was requested */
 void complete_request(int s, char * buf){
-	char *command = strtok(buf, " ");
+	printf("Initial buffer: %s", buf);
+    char *command = strtok(buf, " ");
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
@@ -121,7 +123,18 @@ void complete_request(int s, char * buf){
 		rm_dir(s, arg1, reply);
 
 	} else if(strcmp(command, "DN") == 0){
+	    char *arg1          = strtok(NULL, " ");
+	    printf("Received command: %s with arg1: %s\n", command, arg1);
+        int filename_length = atoi(arg1);
+        char *filename      = strtok(NULL, "\n");
+
+        if(strlen(filename) != filename_length){
+            printf("Filename and filename length do not match");
+            exit(1);
+        }
+
 		printf("We are in the DN case\n");
+        download(s, filename);
 	} else if(strcmp(command, "UP") == 0){
 		printf("We are in the UP case\n");
 	} else {
@@ -216,6 +229,43 @@ void rm_dir(int s, char *arg1, char *reply){
 	} else { // Don't delete the directory
 		printf("do nothing\n");
 	}
+}
+
+void download(int s, char *filename){
+    printf("Download %s\n", filename);
+    FILE *file;
+    char md5[BUFSIZ];
+    char file_size[BUFSIZ];
+
+    //Check the file existence
+    if ((file = fopen(filename, "r"))){
+        //Sends the md5sum
+        char command[BUFSIZ];
+        sprintf(command, "md5sum %s", filename);
+        FILE* command_result = popen(command, "r");
+	    fread(md5, sizeof(char), 32, command_result);
+
+        printf("md5sum buf: %s\n", md5);
+        
+        send_fn(s, md5);
+
+        //Sends the file size
+        fseek(file, 0L, SEEK_END);
+        long int res = ftell(file);
+        rewind(file);
+        sprintf(file_size, "%lu", res);
+        printf("file size buf: %s", file_size);
+
+        send_fn(s, file_size);
+
+        bzero((char *)&file_size, sizeof(file_size));
+
+    } else{ //If file doesnt exist return -1
+        sprintf(md5, "-1");
+        printf("Returning: %s\n", md5);
+        send_fn(s, md5);
+    }
+    bzero((char *)&md5, sizeof(md5));
 }
 
 void send_fn(int socket, char *buf){

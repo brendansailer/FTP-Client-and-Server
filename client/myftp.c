@@ -15,6 +15,7 @@ void mkdir(int, char *, char*, char*);
 void rmdir(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int, char*);
+void download(int, char *);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -72,7 +73,7 @@ void client(char* host, int port){
 		}
 
 		char *command = strtok(buf, " ");
-		printf(command);
+		printf("Command: %s\n",command);
 		if(strcmp(command, "MKDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
 			mkdir(s, arg1, command, reply);
@@ -81,18 +82,14 @@ void client(char* host, int port){
 			char *arg1 = strtok(NULL, " ");
 			rmdir(s, arg1, command);
 			printf("End of rmdir\n");
-		} else if(strcmp(command, "LS")){
+		} else if(strcmp(command, "LS") == 0){
 			send_fn(s, buf);
 			recv_fn(s, reply);
 			printf("%s", reply);
-		} else if(strcmp(command, "\n") == 0){
-				// do nothing on blank input
-	  } else {
-			//printf("SENDING: %s", buf);
-			//send_fn(s, buf);
-
-			//recv_fn(s, reply);
-			//printf("Reply: %s\n", reply);
+        } else if(strcmp(command, "DN") == 0){
+            download(s, command);
+            printf("End of download\n");
+	    } else {
 			printf("Unknown Operation\n");
 		}
 		
@@ -160,13 +157,49 @@ void rmdir(int s, char *arg1, char *command){
 		if(strcmp(reply, "1") == 0){
 			printf("Directory deleted\n");
 		} else if(strcmp(reply, "-1") == 0){
-			printf("Failed to delete directory\n");
+			printf("Faild to delete directory\n");
 		}
 	} else { // Send No
 		printf("Delete abandoned by user!\n");
 		sprintf(buf, "No");
 		send_fn(s, buf);
 	}
+}
+
+void download(int socket, char *command){
+    char *filename      = strtok(NULL, "\n"); //Filename itself
+    int filename_length = strlen(filename);
+    char client_command[BUFSIZ];
+    char md5[BUFSIZ];
+    md5[BUFSIZ-1] = '\0';
+    char file_size[BUFSIZ];
+    file_size[BUFSIZ-1] = '\0';
+
+    sprintf(client_command, "%s %d %s", command, filename_length, filename);
+    printf("Client command %s\n", client_command);
+    send_fn(socket, client_command); //Sends the command to the server
+
+	//Get the md5 hash response
+	if((recv(socket, md5, sizeof(md5), 0))==-1){
+		perror("myftp: error receiving reply");
+	}
+
+    //Server returns -1 if the file cannot be found
+    if(strcmp(md5, "-1") == 0){
+        printf("Server could not find the file %s\n", filename);
+        bzero((char *)&md5, sizeof(md5));
+        return;
+    } 
+                
+    //Gets the size of the file
+	if((recv(socket, file_size, sizeof(file_size), 0))==-1){
+		perror("myftp: error receiving reply");
+	}
+    printf("File size: %s\n", file_size);
+
+    bzero((char *)&file_size, sizeof(file_size));
+    bzero((char *)&md5, sizeof(md5));
+    //TODO new logic after getting file size
 }
 
 void send_fn(int socket, char *buf){
