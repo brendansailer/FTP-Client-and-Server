@@ -17,8 +17,9 @@ void server(int);
 void complete_request(int, char []);
 void ls(char []);
 void mkdir(char *, char []);
-void rmdir(char *, char []);
+void rmdir(int, char *, char []);
 void send_fn(int, char [], int);
+void recv_fn(int socket, char buf[]);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -97,19 +98,26 @@ void server(int port){
 /* Complete the task that was requested */
 void complete_request(int s, char buf[]){
 	char *command = strtok(buf, " ");
-	char *arg1 = strtok(NULL, " ");
-	printf("Received command: %s with arg1: %s\n", command, arg1);
-		
+	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		printf("We are in the LS case\n");
 		ls(reply);
+		send_fn(s, reply, sizeof(reply));
+		printf("ls replying with: %s\n", reply);
+
 	} else if(strcmp(command, "MKDIR") == 0){
 		printf("We are in the MKDIR case\n");
+		char *arg1 = strtok(NULL, " \n");
 		mkdir(arg1, reply);
+		send_fn(s, reply, sizeof(reply));
+		printf("mkdir replying with: %s\n", reply);
+
 	} else if(strcmp(command, "RMDIR") == 0){
 		printf("We are in the RMDIR case\n");
-		rmdir(arg1, reply);
+		char *arg1 = strtok(NULL, " \n");
+		rmdir(s, arg1, reply);
+
 	} else if(strcmp(command, "DN") == 0){
 		printf("We are in the DN case\n");
 	} else if(strcmp(command, "UP") == 0){
@@ -117,15 +125,14 @@ void complete_request(int s, char buf[]){
 	} else {
 		printf("Bad operation - not recognized\n");
 	}
-	send_fn(s, reply, sizeof(reply));
-	printf(reply);
+	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
 }
 
 void ls(char reply[]){
 	FILE *fp = popen("ls -l", "r");
 	if(fp == NULL){
-		printf("LS error");
+		printf("LS error\n");
 	}
 	/* TODO - send the total size per directions */
 	/*while(fgets(reply, BUFSIZ, fp) != NULL){
@@ -136,33 +143,80 @@ void ls(char reply[]){
 
 void mkdir(char *arg1, char reply[]){
 	/* Check if the directory already exists */
+	printf("Name: %s %d\n", arg1, strlen(arg1));
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
-		printf("Directory already exists");
+		printf("Directory already exists\n");
 		sprintf(reply, "-2");
 		closedir(dir);
 		return;
 	}
+	closedir(dir);
 		
 	char buffer[BUFSIZ];
 	sprintf(buffer, "mkdir %s", arg1);
 	FILE *fp = popen(buffer, "r");
 		
 	if(fp == NULL){ // Error making dir
-		printf("MKDIR error");
-		sprintf(reply, "-2");
+		printf("MKDIR error\n");
+		sprintf(reply, "-1");
 		return;
 	}
 
 	sprintf(reply, "1");
 }
 
-void rmdir(char *arg1, char reply[]){
-	
+void rmdir(int s, char *arg1, char reply[]){
+	/* Check if directory exists */
+	DIR* dir = opendir(arg1);
+	if(!dir){
+		sprintf(reply, "-1");
+		closedir(dir);
+		return;
+	}
+	closedir(dir);
+
+	/* Check if the directory is empty */
+	char buffer[BUFSIZ];
+	sprintf(buffer, "ls %s", arg1);
+	FILE *fp = popen(buffer, "r");
+	if(fp == NULL){
+		printf("LS error\n");
+	}
+	fread(reply, sizeof(char), BUFSIZ, fp);
+	if(strcmp(reply, "") == 0){
+		sprintf(reply, "1"); // empty
+	} else {
+		sprintf(reply, "-2"); // not empty
+	}
+	send_fn(s, reply, sizeof(reply));
+
+	// Get confirmation of delete from client	
+	bzero((char *)&buffer, sizeof(buffer));
+	recv_fn(s, buffer);
+	printf("Got the confirmation: %s\n", buffer);
+
+	if(strcmp(buffer, "Yes") == 0){
+		printf("delete the dir\n");
+		// TODO - delete the dir
+		sprintf(reply, "-1"); // not empty
+		//send_fn(s, reply, sizeof(reply));
+		//printf("rmdir replying with: %s\n", reply);
+	} else { // Don't delete the directory
+		printf("do nothing\n");
+		return;
+	}
 }
 
 void send_fn(int socket, char buf[], int len){
 	if(send(socket, buf, len, 0)==-1){
 		printf("Server response error");
+	}
+}
+
+void recv_fn(int socket, char buf[]){
+	int len;
+	if((len=recv(socket, buf, sizeof(buf), 0))==-1){
+			perror("Server Received Error!");
 	}
 }
