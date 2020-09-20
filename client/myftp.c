@@ -12,7 +12,7 @@
 
 void client(char*, int);
 void mkdir(int, char *, char*, char*);
-void rmdir(int, char *, char*, char*);
+void rmdir(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int, char*);
 
@@ -66,22 +66,28 @@ void client(char* host, int port){
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)){
 		buf[BUFSIZ-1] = '\0';
-		if (!strncmp(buf, "Quit", 4)){
+		if (!strncmp(buf, "QUIT", 4)){
 			printf("Good Bye!\n");
 			break;
 		}
 
 		char *command = strtok(buf, " ");
-
+		printf(command);
 		if(strcmp(command, "MKDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
 			mkdir(s, arg1, command, reply);
 			printf("End of mkdir\n");
 		} else if(strcmp(command, "RMDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
-			rmdir(s, arg1, command, reply);
+			rmdir(s, arg1, command);
 			printf("End of rmdir\n");
-		} else {
+		} else if(strcmp(command, "LS")){
+			send_fn(s, buf);
+			recv_fn(s, reply);
+			printf("%s", reply);
+		} else if(strcmp(command, "\n") == 0){
+				// do nothing on blank input
+	  } else {
 			//printf("SENDING: %s", buf);
 			//send_fn(s, buf);
 
@@ -117,8 +123,9 @@ void mkdir(int s, char *arg1, char *command, char *reply){
 	}
 }
 
-void rmdir(int s, char *arg1, char *command, char *reply){
+void rmdir(int s, char *arg1, char *command){
 	char buf[BUFSIZ];
+	char reply[BUFSIZ];
 	// Check if no directory was passed
 	if(strcmp(arg1, "") == 0){
 		printf("Please pass a directory name\n");
@@ -147,7 +154,9 @@ void rmdir(int s, char *arg1, char *command, char *reply){
 		printf("Yes Case\n");
 		sprintf(buf, "Yes");
 		send_fn(s, buf);
+		printf("Sent yes - waiting for reply\n");
 		recv_fn(s, reply);
+		printf("Got the reply: %s\n", reply);
 		if(strcmp(reply, "1") == 0){
 			printf("Directory deleted\n");
 		} else if(strcmp(reply, "-1") == 0){

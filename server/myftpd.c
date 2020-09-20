@@ -17,7 +17,7 @@
 
 void server(int);
 void complete_request(int, char *);
-void ls(char []);
+void ls(char *);
 void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
 void send_fn(int, char*);
@@ -131,7 +131,7 @@ void complete_request(int s, char * buf){
 	bzero((char *) &reply, sizeof(reply));
 }
 
-void ls(char reply[]){
+void ls(char *reply){
 	FILE *fp = popen("ls -l", "r");
 	if(fp == NULL){
 		printf("LS error\n");
@@ -172,11 +172,11 @@ void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
 	char dest[100] = {"./"};
 	strcat(dest, arg1);
-	printf(dest);
 	DIR* dir = opendir(dest);
 	if(dir == NULL){
 		sprintf(reply, "-1");
-		printf("DOES NOT EXIST\n");
+		send_fn(s, reply);
+		printf("Directory does not exist\n");
 		closedir(dir);
 		return;
 	}
@@ -211,11 +211,10 @@ void rm_dir(int s, char *arg1, char *reply){
 		} else {
 			sprintf(reply, "-1"); // delete failed
 		}
-		send_fn(s, reply);
 		printf("rmdir replying with: %s\n", reply);
+		send_fn(s, reply);
 	} else { // Don't delete the directory
 		printf("do nothing\n");
-		return;
 	}
 }
 
@@ -223,7 +222,6 @@ void send_fn(int socket, char *buf){
 	if(send(socket, buf, strlen(buf)+1, 0)==-1){
 		printf("Server response error");
 	}
-	printf("send_fn: %s\n", buf);
 }
 
 void recv_fn(int socket, char *buf){
