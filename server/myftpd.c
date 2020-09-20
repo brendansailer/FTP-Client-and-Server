@@ -192,11 +192,12 @@ void rm_dir(int s, char *arg1, char *reply){
 	fread(reply, sizeof(char), BUFSIZ, fp);
 	if(strcmp(reply, "") == 0){
 		sprintf(reply, "1"); // empty
+		send_fn(s, reply);
 	} else {
 		sprintf(reply, "-2"); // not empty
+		send_fn(s, reply);
+		return;
 	}
-	printf("Reply sent\n");
-	send_fn(s, reply);
 
 	// Get confirmation of delete from client	
 	bzero((char *)&buffer, sizeof(buffer));

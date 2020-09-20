@@ -87,6 +87,7 @@ void client(char* host, int port){
 			printf("%s", reply);
 		} else if(strcmp(command, "\n") == 0){
 				// do nothing on blank input
+				printf("BLANK INPUT\n");
 	  } else {
 			//printf("SENDING: %s", buf);
 			//send_fn(s, buf);
