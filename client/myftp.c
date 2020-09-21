@@ -16,6 +16,7 @@ void rmdir(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int, char*);
 void download(int, char *);
+void upload(int, char *);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -73,7 +74,6 @@ void client(char* host, int port){
 		}
 
 		char *command = strtok(buf, " ");
-		printf("Command: %s\n",command);
 		if(strcmp(command, "MKDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
 			mkdir(s, arg1, command, reply);
@@ -88,7 +88,8 @@ void client(char* host, int port){
 			printf("%s", reply);
         } else if(strcmp(command, "DN") == 0){
             download(s, command);
-            printf("End of download\n");
+	    } else if(strcmp(command, "UP") == 0){
+            upload(s, command);
 	    } else {
 			printf("Unknown Operation\n");
 		}
@@ -204,7 +205,7 @@ void download(int socket, char *command){
     int total_bytes = remaining;
     int read;
 
-    FILE *wr = fopen(filename, "w");
+    FILE *wr = fopen(filename, "w+");
 
     //Writes the file to the disk portion by portion
     while(remaining > 0){
@@ -241,8 +242,108 @@ void download(int socket, char *command){
     }
 
     bzero((char *)&file_size, sizeof(file_size));
+    bzero((char *)&md5_res, sizeof(md5_res));
+    bzero((char *)&res, sizeof(res));
     bzero((char *)&md5, sizeof(md5));
+    bzero((char *)&file_portion, sizeof(file_portion));
 }
+
+void upload(int socket, char *command){
+    char *filename      = strtok(NULL, "\n"); //Filename itself
+    int filename_length = strlen(filename);
+    char client_command[BUFSIZ];
+    char response[BUFSIZ];
+    char file_buf[BUFSIZ];
+    char md5[BUFSIZ];
+
+    //If the file exists, send the command to the server
+    FILE *file;
+    int file_size;
+    if ((file = fopen(filename, "r"))){
+        //Creates the command to send to the server
+        sprintf(client_command, "%s %d %s", command, filename_length, filename);
+        send_fn(socket, client_command); //Sends the command to the server
+
+        //Get the server response
+	    if((recv(socket, response, sizeof(response), 0))==-1){
+		    perror("myftp: error receiving reply");
+	    }
+
+        if(strcmp(response, "ok") != 0 ){
+            perror("The server is not ready\n");
+            return;
+        }
+        
+        bzero((char *)&response, sizeof(response));
+
+        //Finds the size of the file
+        fseek(file, 0L, SEEK_END);
+        long int remaining = ftell(file);
+        file_size = remaining;
+        rewind(file);
+        sprintf(response, "%lu", remaining);
+
+        //Send the file size
+        send_fn(socket, response);
+
+        usleep(1000);
+
+        //Reads the entire file into a buffer
+        while( remaining > 0){
+            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+            if( count < 0 ){
+                perror("fread error");
+                return;
+            }
+            remaining -= count;
+            
+            //send the current portion of the file
+            send_fn(socket, file_buf);
+        }
+
+        fclose(file);
+
+        
+        //Computes the md5sum of the file
+        char com[BUFSIZ];
+        sprintf(com, "md5sum %s", filename);
+        FILE* command_result = popen(com, "r");
+	    fread(md5, sizeof(char), 32, command_result);
+        printf("Calculated: %s\n", md5);
+
+        //Gets the throughput from the server
+        char throughput[BUFSIZ];
+	    if((recv(socket, throughput, sizeof(throughput), 0))==-1){
+		    perror("myftp: error receiving reply");
+	    }
+        
+        //Display throughput information
+        printf("%s\n", throughput);
+
+        //Gets the md5sum from the server
+	    if((recv(socket, response, sizeof(response), 0))==-1){
+		    perror("myftp: error receiving reply");
+	    }
+        
+
+        if(strcmp(response, md5) != 0 ){
+            perror("md5sums do not match\n");
+            return;
+        }
+
+        //Print matching message
+        printf("MD5 hash: %s (matches)\n", response);
+    
+    } else {
+        perror("File does not exist\n");
+        return;
+    }
+
+
+    bzero((char *)&response, sizeof(response));
+    bzero((char *)&file_buf, sizeof(file_buf));
+}
+
 
 void send_fn(int socket, char *buf){
 	if(send(socket, buf, strlen(buf)+1, 0)==-1){

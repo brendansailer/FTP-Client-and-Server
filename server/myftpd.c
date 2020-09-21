@@ -23,6 +23,7 @@ void rm_dir(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
 void download(int, char *);
+void upload(int, char *);
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -36,6 +37,7 @@ int main(int argc, char * argv[]) {
 }
 
 void server(int port){
+    port = 41023;
 	struct sockaddr_in sin, client_addr;
 	char buf[MAX_LINE];
 	int len, addr_len;
@@ -83,10 +85,8 @@ void server(int port){
 				exit(1);
 			}
 			else if(len==0){
-				printf("BUSTING OUT\n");
 				break;
 			}
-			printf("TCP Server Received: %s", buf);
 			complete_request(new_s, buf);
 			bzero((char *) &buf, sizeof(buf));
 		}
@@ -100,43 +100,46 @@ void server(int port){
 
 /* Complete the task that was requested */
 void complete_request(int s, char * buf){
-	printf("Initial buffer: %s", buf);
     char *command = strtok(buf, " ");
+
+    if(command == NULL)
+        return;
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
-		printf("We are in the LS case\n");
 		ls(reply);
 		send_fn(s, reply);
-		printf("ls replying with: %s\n", reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
-		printf("We are in the MKDIR case\n");
 		char *arg1 = strtok(NULL, " \n");
 		mk_dir(arg1, reply);
 		send_fn(s, reply);
-		printf("mkdir replying with: %s\n", reply);
 
 	} else if(strcmp(command, "RMDIR") == 0){
-		printf("We are in the RMDIR case\n");
 		char *arg1 = strtok(NULL, " \n");
 		rm_dir(s, arg1, reply);
 
 	} else if(strcmp(command, "DN") == 0){
 	    char *arg1          = strtok(NULL, " ");
-	    printf("Received command: %s with arg1: %s\n", command, arg1);
         int filename_length = atoi(arg1);
         char *filename      = strtok(NULL, "\n");
 
+        if(strlen(filename) != filename_length){
+            exit(1);
+        }
+
+        download(s, filename);
+	} else if(strcmp(command, "UP") == 0){
+	    char *arg1          = strtok(NULL, " ");
+        int filename_length = atoi(arg1);
+        char *filename      = strtok(NULL, "\n");
+        
         if(strlen(filename) != filename_length){
             printf("Filename and filename length do not match");
             exit(1);
         }
 
-		printf("We are in the DN case\n");
-        download(s, filename);
-	} else if(strcmp(command, "UP") == 0){
-		printf("We are in the UP case\n");
+        upload(s, filename);
 	} else {
 		printf("Bad operation - not recognized\n");
 	}
@@ -232,7 +235,6 @@ void rm_dir(int s, char *arg1, char *reply){
 }
 
 void download(int s, char *filename){
-    printf("Download %s\n", filename);
     FILE *file;
     char md5[BUFSIZ];
     char file_size[BUFSIZ];
@@ -246,8 +248,6 @@ void download(int s, char *filename){
         FILE* command_result = popen(command, "r");
 	    fread(md5, sizeof(char), 32, command_result);
 
-        printf("md5sum buf: %s\n", md5);
-        
         send_fn(s, md5);
 
         //Sends the file size
@@ -255,7 +255,6 @@ void download(int s, char *filename){
         long int remaining = ftell(file);
         rewind(file);
         sprintf(file_size, "%lu", remaining);
-        printf("file size buf: %s", file_size);
 
         send_fn(s, file_size);
 
@@ -272,16 +271,82 @@ void download(int s, char *filename){
             remaining -= count;
 
             //send the current portion of the file
-            printf("File buffer: %s\n", file_buf);
             send_fn(s, file_buf);
         }
 
     } else{ //If file doesnt exist return -1
         sprintf(md5, "-1");
-        printf("Returning: %s\n", md5);
         send_fn(s, md5);
     }
     bzero((char *)&md5, sizeof(md5));
+}
+
+void upload(int s, char *filename){
+    char response[BUFSIZ];
+    char file_portion[BUFSIZ];
+
+    //Server responds with ok when ready
+    sprintf(response, "ok");
+    send_fn(s, response);
+
+    bzero((char *)&response, sizeof(response));
+
+    //Server gets the file size from the client
+    if((recv(s, response, sizeof(response), 0)) == -1){
+        perror("error receiving reply\n");
+        return;
+    }
+
+    int file_remaining, written;
+    sscanf(response, "%d", &file_remaining);
+    FILE *wr = fopen(filename, "w+");
+    int file_size = file_remaining;
+
+    //Gets the time interval initial value
+    struct timeval t0;
+    gettimeofday(&t0, 0);
+
+    //Writes the file to the disk portion by portion
+    while( file_remaining > 0 ){
+        if((written = recv(s, file_portion, file_remaining, 0)) == -1){
+            perror("error receiving reply\n");
+            return;
+        }
+
+        file_remaining -= written;
+
+        //Writes the file to the disk
+        fwrite(file_portion, sizeof(char), written, wr);
+    }
+
+    fclose(wr);
+
+    bzero((char *)&response, sizeof(response));
+    
+    //Gets the time interval final value
+    struct timeval t1;
+    gettimeofday(&t1, 0);
+    
+    //Computes the throughput
+    long elapsed = (t1.tv_sec - t0.tv_sec)*1000000 + (t1.tv_usec - t0.tv_usec);
+    float throughput = file_size/(float)elapsed;
+
+    //Server sends the throughput
+    sprintf(response, "%d bytes transferred in %f seconds: %f Megabytes/sec", file_size, elapsed/1000000., throughput);
+    send_fn(s, response);
+    bzero((char *)&response, sizeof(response));
+
+    //Computes the md5sum of the file
+    char command[BUFSIZ];
+    sprintf(command, "md5sum %s", filename);
+    FILE* command_result = popen(command, "r");
+	fread(response, sizeof(char), 32, command_result);
+
+    //Server sends the md5sum
+    send_fn(s, response);
+    
+    bzero((char *)&file_portion, sizeof(file_portion));
+    bzero((char *)&response, sizeof(response));
 }
 
 void send_fn(int socket, char *buf){
