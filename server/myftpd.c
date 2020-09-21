@@ -21,9 +21,13 @@ void ls(char *);
 void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
+void cd(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
+void recv_int(int socket, int []);
 void download(int, char *);
+
+char PATH[BUFSIZ] = {"."};
 
 int main(int argc, char * argv[]) {
 		if(argc == 2){
@@ -122,6 +126,11 @@ void complete_request(int s, char * buf){
 		printf("We are in the RMDIR case\n");
 		char *arg1 = strtok(NULL, " \n");
 		rm_dir(s, arg1, reply);
+	
+	} else if(strcmp(command, "CD") == 0){
+		printf("We are in the CD case\n");
+		char *arg1 = strtok(NULL, " \n");
+		cd(s, arg1, reply);
 
 	} else if(strcmp(command, "RM") == 0){
 		printf("We are in the RM case\n");
@@ -145,6 +154,9 @@ void complete_request(int s, char * buf){
 	} else if(strcmp(command, "UP") == 0){
 		printf("We are in the UP case\n");
 	} else {
+		int a[1];
+		recv_int(s, a);
+		printf("The value of a is: %d\n", a[0]);
 		printf("Bad operation - not recognized\n");
 	}
 	bzero((char *) &buf, sizeof(buf));
@@ -186,6 +198,29 @@ void rm_file(int s, char *arg1, char *reply){
 	} else { // Don't delete the directory
 		printf("do nothing\n");
 	}
+}
+
+void cd(int s, char *arg1, char *reply){
+	/* Check if file exists */
+	char temp_path[BUFSIZ];
+	strcat(temp_path, PATH);
+	strcat(temp_path, arg1);
+
+	printf("Trying: %s - old path: %s\n", temp_path, PATH);
+	struct stat path;
+	if(stat(temp_path, &path) < 0){ // DNE
+		sprintf(reply, "-2");
+	} else if(!S_ISDIR(path.st_mode)){ // Not a directory
+		sprintf(reply, "-1");
+	} else {
+		sprintf(reply, "1");
+		memcpy(PATH, temp_path, BUFSIZ);
+	}
+	
+	printf("cd replying with: %s\n", reply);
+	send_fn(s, reply);
+	printf("The new path is: %s\n", PATH);
+	bzero((char*)&temp_path, sizeof(temp_path));
 }
 
 void ls(char *reply){
@@ -322,6 +357,13 @@ void send_fn(int socket, char *buf){
 void recv_fn(int socket, char *buf){
 	int len;
 	if((len=recv(socket, buf, sizeof(buf), 0))==-1){
+			perror("Server Received Error!");
+	}
+}
+
+void recv_int(int socket, int value[]){
+	int len;
+	if((len=recv(socket, value, sizeof(value), 0))==-1){
 			perror("Server Received Error!");
 	}
 }
