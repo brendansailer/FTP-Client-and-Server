@@ -236,6 +236,7 @@ void download(int s, char *filename){
     FILE *file;
     char md5[BUFSIZ];
     char file_size[BUFSIZ];
+    char file_buf[BUFSIZ];
 
     //Check the file existence
     if ((file = fopen(filename, "r"))){
@@ -251,14 +252,29 @@ void download(int s, char *filename){
 
         //Sends the file size
         fseek(file, 0L, SEEK_END);
-        long int res = ftell(file);
+        long int remaining = ftell(file);
         rewind(file);
-        sprintf(file_size, "%lu", res);
+        sprintf(file_size, "%lu", remaining);
         printf("file size buf: %s", file_size);
 
         send_fn(s, file_size);
 
         bzero((char *)&file_size, sizeof(file_size));
+        usleep(1000);
+
+        //Reads the entire file into a buffer
+        while(remaining > 0){
+            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+            if(count < 0){
+                perror("fread error");
+                return;
+            }
+            remaining -= count;
+
+            //send the current portion of the file
+            printf("File buffer: %s\n", file_buf);
+            send_fn(s, file_buf);
+        }
 
     } else{ //If file doesnt exist return -1
         sprintf(md5, "-1");

@@ -171,12 +171,15 @@ void download(int socket, char *command){
     int filename_length = strlen(filename);
     char client_command[BUFSIZ];
     char md5[BUFSIZ];
-    md5[BUFSIZ-1] = '\0';
     char file_size[BUFSIZ];
-    file_size[BUFSIZ-1] = '\0';
+    char file_portion[BUFSIZ];
 
     sprintf(client_command, "%s %d %s", command, filename_length, filename);
-    printf("Client command %s\n", client_command);
+
+    //Gets the time interval initial value
+    struct timeval t0;
+    gettimeofday(&t0, 0);
+
     send_fn(socket, client_command); //Sends the command to the server
 
 	//Get the md5 hash response
@@ -195,11 +198,50 @@ void download(int socket, char *command){
 	if((recv(socket, file_size, sizeof(file_size), 0))==-1){
 		perror("myftp: error receiving reply");
 	}
-    printf("File size: %s\n", file_size);
+    
+    int remaining;
+    sscanf(file_size, "%d", &remaining);
+    int total_bytes = remaining;
+    int read;
+
+    FILE *wr = fopen(filename, "w");
+
+    //Writes the file to the disk portion by portion
+    while(remaining > 0){
+        //Gets the file data
+        if((read = recv(socket, file_portion, remaining, 0))==-1){
+		    perror("myftp: error receiving reply");
+	    }
+        remaining -= read;
+
+        //Writes the file to the disk
+        fwrite(file_portion, sizeof(char), read, wr);
+    }
+
+    fclose(wr);
+
+    //Gets the time interval initial value
+    struct timeval t1;
+    gettimeofday(&t1, 0);
+
+    long elapsed = (t1.tv_sec - t0.tv_sec)*1000000  + (t1.tv_usec - t0.tv_usec);
+    printf("%s bytes transferred in %f seconds: %f Megabytes/sec\n", file_size, elapsed/1000000., total_bytes/(float)elapsed);
+
+    //Computes the md5 of the written file
+    char res[BUFSIZ];
+    char md5_res[BUFSIZ];
+    sprintf(res, "md5sum %s", filename);
+    FILE* command_result = popen(res, "r");
+    fread(md5_res, sizeof(char), 32, command_result);
+
+    if(strcmp(md5, md5_res) != 0){
+        printf("File md5sums do not match\n");
+    } else{
+        printf("MD5 hash: %s (matches)\n", md5);
+    }
 
     bzero((char *)&file_size, sizeof(file_size));
     bzero((char *)&md5, sizeof(md5));
-    //TODO new logic after getting file size
 }
 
 void send_fn(int socket, char *buf){
