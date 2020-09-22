@@ -255,9 +255,9 @@ void mk_dir(char *arg1, char *reply){
 
 void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
-	char dest[100] = {"./"};
-	strcat(dest, arg1);
-	DIR* dir = opendir(dest);
+	//char dest[100] = {"./"};
+	//strcat(dest, arg1);
+	DIR* dir = opendir(arg1);
 	if(dir == NULL){
 		sprintf(reply, "-1");
 		send_fn(s, reply);
@@ -292,7 +292,7 @@ void rm_dir(int s, char *arg1, char *reply){
 	if(strcmp(buffer, "Yes") == 0){
 		printf("delete the dir\n");
 		// Delete the dir
-		if(rmdir(dest) >= 0){
+		if(rmdir(arg1) >= 0){
 			sprintf(reply, "1"); // delete success
 		} else {
 			sprintf(reply, "-1"); // delete failed
