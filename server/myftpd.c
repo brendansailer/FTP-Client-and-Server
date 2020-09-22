@@ -255,8 +255,6 @@ void mk_dir(char *arg1, char *reply){
 
 void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
-	//char dest[100] = {"./"};
-	//strcat(dest, arg1);
 	DIR* dir = opendir(arg1);
 	if(dir == NULL){
 		sprintf(reply, "-1");
