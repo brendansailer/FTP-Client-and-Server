@@ -24,7 +24,8 @@ void rm_file(int, char *, char*);
 void cd(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
-void recv_int(int socket, int []);
+int  recv_int(int socket);
+void send_int(int, int);
 void download(int, char *);
 void upload(int, char *);
 
@@ -153,10 +154,9 @@ void complete_request(int s, char * buf){
 
         upload(s, filename);
 	} else {
-		//int a[1];
-		//recv_int(s, a);
-		//printf("The value of a is: %d\n", a[0]);
 		printf("Bad operation - not recognized\n");
+		printf("The int is: %d\n", recv_int(s));
+		send_int(s, 4321);
 	}
 	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
@@ -454,9 +454,19 @@ void recv_fn(int socket, char *buf){
 	}
 }
 
-void recv_int(int socket, int value[]){
-	int len;
-	if((len=recv(socket, value, sizeof(value), 0))==-1){
-			perror("Server Received Error!");
+void send_int(int socket, int value){
+	int formatted = htonl(value);
+	if(send(socket, &formatted, sizeof(formatted), 0)==-1){
+		printf("Server response error");
 	}
+}
+
+int recv_int(int socket){
+	int len;
+	int received_int;
+	if((len=recv(socket, &received_int, sizeof(received_int), 0)) < 0){
+			perror("Server Received Error!");
+			return -1;
+	}
+	return ntohl(received_int);
 }

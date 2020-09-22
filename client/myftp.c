@@ -16,7 +16,8 @@ void rmdir(int, char *, char*);
 void rmfile(int, char *, char*);
 void cd(int, char *, char*);
 void send_fn(int, char*);
-void send_int(int, int[]);
+void send_int(int, int);
+int recv_int(int socket);
 void recv_fn(int, char*);
 void download(int, char *);
 void upload(int, char *);
@@ -102,9 +103,9 @@ void client(char* host, int port){
             upload(s, command);
 	    } else {
 			printf("Unknown Operation\n");
-			//send_fn(s, command);
-			//int a[1] = {123};
-			//send_int(s, a);
+			send_fn(s, command);
+			send_int(s, 1234);
+			printf("Got the int is: %d\n", recv_int(s));
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -441,16 +442,27 @@ void send_fn(int socket, char *buf){
 	}
 }
 
-void send_int(int socket, int value[]){
-	if(send(socket, (char *) value, sizeof(value), 0)==-1){
-		printf("Client send error");
-	}
-}
-
 void recv_fn(int socket, char *reply){
 	int length;
 	if((length=recv(socket, reply, sizeof(reply), 0))==-1){
 		perror("myftp: error receiving reply");
 		exit(1);
 	}
+}
+
+void send_int(int socket, int value){
+	int formatted = htonl(value);
+	if(send(socket, &formatted, sizeof(formatted), 0)==-1){
+		printf("Client send error");
+	}
+}
+
+int recv_int(int socket){
+	int length;
+	int received_int;
+	if((length=recv(socket, &received_int, sizeof(received_int), 0)) < 0){
+		perror("myftp: error receiving reply");
+		exit(1);
+	}
+	return ntohl(received_int);
 }
