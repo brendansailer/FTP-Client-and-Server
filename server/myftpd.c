@@ -17,7 +17,7 @@
 
 void server(int);
 void complete_request(int, char *);
-void ls(char *);
+void ls(int, char *);
 void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
@@ -40,7 +40,6 @@ int main(int argc, char * argv[]) {
 }
 
 void server(int port){
-    port = 41023;
 	struct sockaddr_in sin, client_addr;
 	char buf[MAX_LINE];
 	int len, addr_len;
@@ -110,8 +109,7 @@ void complete_request(int s, char * buf){
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
-		ls(reply);
-		send_fn(s, reply);
+		ls(s, reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -155,9 +153,9 @@ void complete_request(int s, char * buf){
 
         upload(s, filename);
 	} else {
-		int a[1];
-		recv_int(s, a);
-		printf("The value of a is: %d\n", a[0]);
+		//int a[1];
+		//recv_int(s, a);
+		//printf("The value of a is: %d\n", a[0]);
 		printf("Bad operation - not recognized\n");
 	}
 	bzero((char *) &buf, sizeof(buf));
@@ -219,16 +217,39 @@ void cd(int s, char *arg1, char *reply){
 	send_fn(s, reply);
 }
 
-void ls(char *reply){
-	FILE *fp = popen("ls -l", "r");
+void ls(int s, char *reply){
+	char file_buf[BUFSIZ];
+	char cwd[BUFSIZ];
+	char command[BUFSIZ];
+
+	// Get the current working directory
+	if(getcwd(cwd, sizeof(cwd)) == NULL){
+		printf("CWD error\n");
+		send_fn(s, "-1");
+	}
+
+	// Prepare the command for popen
+	sprintf(command, "ls -l %s", cwd);
+
+	FILE *fp = popen(command, "r");
 	if(fp == NULL){
 		printf("LS error\n");
+		send_fn(s, "-1");
+		return;
 	}
-	/* TODO - send the total size per directions */
-	/*while(fgets(reply, BUFSIZ, fp) != NULL){
-		printf(reply);
-	} */
-	fread(reply, sizeof(char), BUFSIZ, fp);
+	
+	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	printf(file_buf);
+	while(count > 0){
+		//send the current portion of the LS
+		send_fn(s, file_buf);
+	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	}
+	
+	send_fn(s, "-1"); // Signal the end of the transmission
+	bzero((char *)&file_buf, sizeof(file_buf));
+	bzero((char *)&cwd, sizeof(cwd));
+	bzero((char *)&command, sizeof(command));
 }
 
 void mk_dir(char *arg1, char *reply){

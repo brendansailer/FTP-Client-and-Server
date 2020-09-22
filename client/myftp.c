@@ -20,6 +20,7 @@ void send_int(int, int[]);
 void recv_fn(int, char*);
 void download(int, char *);
 void upload(int, char *);
+void ls(int, char*, char*);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -93,10 +94,8 @@ void client(char* host, int port){
 			char *arg1 = strtok(NULL, " ");
 			cd(s, arg1, command);
 			printf("End of cd\n");
-		} else if(strcmp(command, "LS") == 0){
-			send_fn(s, buf);
-			recv_fn(s, reply);
-			printf("%s", reply);
+		} else if(strcmp(command, "LS\n") == 0){
+				ls(s, command, reply);
         } else if(strcmp(command, "DN") == 0){
             download(s, command);
 	    } else if(strcmp(command, "UP") == 0){
@@ -113,6 +112,17 @@ void client(char* host, int port){
 	}
 
 	close(s); 
+}
+
+void ls(int s, char* command, char* reply){
+	char buff[BUFSIZ];
+	send_fn(s, command); //Sends the command to the server
+	
+	recv_fn(s, buff); 
+	while(strcmp(buff, "-1") != 0){ // Loop over the LS data until -1 is recevied
+		printf(buff);
+		recv_fn(s, buff); // Get the size of the LS response
+  }
 }
 
 void rmfile(int s, char *arg1, char *command){
@@ -432,7 +442,7 @@ void send_fn(int socket, char *buf){
 }
 
 void send_int(int socket, int value[]){
-	if(send(socket, (char*) value, sizeof(value), 0)==-1){
+	if(send(socket, (char *) value, sizeof(value), 0)==-1){
 		printf("Client send error");
 	}
 }
@@ -443,5 +453,4 @@ void recv_fn(int socket, char *reply){
 		perror("myftp: error receiving reply");
 		exit(1);
 	}
-	printf("The length is: %d\n", length);
 }
