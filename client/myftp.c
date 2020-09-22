@@ -129,15 +129,19 @@ void ls(int s, char* command, char* reply){
 void rmfile(int s, char *arg1, char *command){
 	char buf[BUFSIZ];
 	char reply[BUFSIZ];
+
 	// Check if no file was passed
 	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a file name\n");
 		return;
 	}
 	sprintf(buf, "%s %s", command, arg1);
+	//send_int(s, strlen(arg1));
 	send_fn(s, buf);
-	recv_fn(s, reply);
-	if(strcmp(reply, "-1") == 0){
+	
+	// Read the reply
+	int result = recv_int(s);
+	if(result == -1){
 		printf("The file does not exist on the server\n");
 		return;
 	} else{
@@ -150,22 +154,18 @@ void rmfile(int s, char *arg1, char *command){
 	char str[5];
 	scanf("%s", str);
 	if(strcmp(str, "Yes") == 0){ // Send Yes
-		printf("Yes Case\n");
-		sprintf(buf, "Yes");
-		send_fn(s, buf);
-		printf("Sent yes - waiting for reply\n");
-		recv_fn(s, reply);
-		printf("Got the reply: %s\n", reply);
-		if(strcmp(reply, "1") == 0){
+		send_fn(s, "Yes");
+		int result = recv_int(s);
+		if(result == 0){
 			printf("File deleted\n");
-		} else if(strcmp(reply, "-1") == 0){
+		} else if(result == -1){
 			printf("Faild to delete file\n");
 		}
 	} else { // Send No
 		printf("Delete abandoned by user!\n");
-		sprintf(buf, "No");
-		send_fn(s, buf);
+		send_fn(s, "No");
 	}
+
 	// Consume the '\n' after the Yes/No confirmation
 	fgets(buf, sizeof(buf), stdin);
 }
@@ -180,10 +180,11 @@ void cd(int s, char *arg1, char *command){
 	}
 	sprintf(buf, "%s %s", command, arg1);
 	send_fn(s, buf);
-	recv_fn(s, reply);
-	if(strcmp(reply, "-2") == 0){
+
+	int result = recv_int(s);
+	if(result == -2){
 		printf("The directory does not exist on the server\n");
-	} else if(strcmp(reply, "-1") == 0){
+	} else if(result == -1){
 		printf("Error in changing directory\n"); 
   } else{
 		printf("Changed current directory\n");
@@ -192,6 +193,7 @@ void cd(int s, char *arg1, char *command){
 
 void mkdir(int s, char *arg1, char *command, char *reply){
 	char buf[BUFSIZ];
+
 	// Check if no directory was passed
 	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
@@ -199,11 +201,11 @@ void mkdir(int s, char *arg1, char *command, char *reply){
 	}
 	sprintf(buf, "%s %s", command, arg1);
 	send_fn(s, buf);
-	recv_fn(s, reply);
-	printf("Got the reply: %s \n", reply);
-	if(strcmp(reply, "-2") == 0){
+
+	int result = recv_int(s);
+	if(result == -2){
 		printf("The directory already exists on server\n");
-	} else if(strcmp(reply, "-1") == 0){
+	} else if(result == -1){
 		printf("Error in making directory\n");
 	} else{
 		printf("The directory was successfully made\n");
@@ -213,6 +215,7 @@ void mkdir(int s, char *arg1, char *command, char *reply){
 void rmdir(int s, char *arg1, char *command){
 	char buf[BUFSIZ];
 	char reply[BUFSIZ];
+
 	// Check if no directory was passed
 	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
@@ -220,12 +223,12 @@ void rmdir(int s, char *arg1, char *command){
 	}
 	sprintf(buf, "%s %s", command, arg1);
 	send_fn(s, buf);
-	recv_fn(s, reply);
-	printf("Got the reply: %s\n", reply);
-	if(strcmp(reply, "-2") == 0){
+	
+	int response = recv_int(s);
+	if(response == -2){
 		printf("The directory is not empty\n");
 		return;
-	} else if(strcmp(reply, "-1") == 0){
+	} else if(response == -1){
 		printf("The directory does not exist on the server\n");
 		return;
 	} else{
@@ -238,15 +241,13 @@ void rmdir(int s, char *arg1, char *command){
 	char str[5];
 	scanf("%s", str);
 	if(strcmp(str, "Yes") == 0){ // Send Yes
-		printf("Yes Case\n");
 		sprintf(buf, "Yes");
 		send_fn(s, buf);
-		printf("Sent yes - waiting for reply\n");
-		recv_fn(s, reply);
-		printf("Got the reply: %s\n", reply);
-		if(strcmp(reply, "1") == 0){
+		
+		response = recv_int(s);
+		if(response == 1){
 			printf("Directory deleted\n");
-		} else if(strcmp(reply, "-1") == 0){
+		} else if(response == -1){
 			printf("Faild to delete directory\n");
 		}
 	} else { // Send No
@@ -254,6 +255,7 @@ void rmdir(int s, char *arg1, char *command){
 		sprintf(buf, "No");
 		send_fn(s, buf);
 	}
+
 	// Consume the '\n' after the Yes/No confirmation
 	fgets(buf, sizeof(buf), stdin);
 }

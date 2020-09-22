@@ -18,7 +18,7 @@
 void server(int);
 void complete_request(int, char *);
 void ls(int, char *);
-void mk_dir(char *, char *);
+void mk_dir(int, char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
 void cd(int, char *, char*);
@@ -114,8 +114,7 @@ void complete_request(int s, char * buf){
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
-		mk_dir(arg1, reply);
-		send_fn(s, reply);
+		mk_dir(s, arg1, reply);
 
 	} else if(strcmp(command, "RMDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -129,6 +128,8 @@ void complete_request(int s, char * buf){
 	} else if(strcmp(command, "RM") == 0){
 		printf("We are in the RM case\n");
 		char *arg1 = strtok(NULL, " \n");
+		//int length = recv_int(s);
+		//printf("The length is: %d\n", length);
 		rm_file(s, arg1, reply);
 
 	
@@ -163,58 +164,52 @@ void complete_request(int s, char * buf){
 }
 
 void rm_file(int s, char *arg1, char *reply){
-	/* Check if file exists */
-	char dest[100] = {"./"};
-	strcat(dest, arg1);
-	FILE *fp = fopen(dest, "r");
+	/*
+	// Verify length of the file name is correct
+	if(length != strlen(arg1)){
+		printf("The filename was transmitted incorrectly!\n");
+		send_int(s, -1);
+	} */
+
+	// Check if file exists 
+	FILE *fp = fopen(arg1, "r");
 	if(fp == NULL){
-		sprintf(reply, "-1");
-		send_fn(s, reply);
 		printf("File does not exist\n");
+		send_int(s, -1);
 		return;
 	}
 	fclose(fp);
+	
 	// Confirm file exists
-	sprintf(reply, "1");
-	send_fn(s, reply);
+	send_int(s, 1);
 	
 	// Get confirmation of delete from client	
 	char buffer[BUFSIZ];
 	bzero((char *)&buffer, sizeof(buffer));
 	recv_fn(s, buffer);
-	printf("Got the confirmation: %s\n", buffer);
 
-	if(strcmp(buffer, "Yes") == 0){
-		printf("delete the file\n");
-		// Delete the file
-		if(remove(dest) >= 0){
-			sprintf(reply, "1"); // delete success
+	if(strcmp(buffer, "Yes") == 0){ // Delete the file
+		if(remove(arg1) >= 0){
+			send_int(s, 1); // delete success
 		} else {
-			sprintf(reply, "-1"); // delete failed
+			send_int(s, -1); // delete failed
 		}
-		printf("rm replying with: %s\n", reply);
-		send_fn(s, reply);
-	} else { // Don't delete the directory
-		printf("do nothing\n");
 	}
 }
 
 void cd(int s, char *arg1, char *reply){
 	struct stat path;
 	if(stat(arg1, &path) < 0){
-		sprintf(reply, "-2"); // Directory does not exist
+		send_int(s, -2); // Directory does not exist
 	} else if(!S_ISDIR(path.st_mode)){
-		sprintf(reply, "-1"); // Not a directory
+		send_int(s, -1); // Not a directory
 	}
 	
 	if(chdir(arg1)){
-		sprintf(reply, "-1");
+		send_int(s, -1); // chdir failed
 	} else {
-		sprintf(reply, "1");
+		send_int(s, 1);
 	}
-	
-	printf("cd replying with: %s\n", reply);
-	send_fn(s, reply);
 }
 
 void ls(int s, char *reply){
@@ -252,13 +247,13 @@ void ls(int s, char *reply){
 	bzero((char *)&command, sizeof(command));
 }
 
-void mk_dir(char *arg1, char *reply){
+void mk_dir(int s, char *arg1, char *reply){
 	/* Check if the directory already exists */
 	printf("Directory Name: %s\n", arg1);
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
 		printf("Directory already exists\n");
-		sprintf(reply, "-2");
+		send_int(s, -2);
 		closedir(dir);
 		return;
 	}
@@ -267,23 +262,21 @@ void mk_dir(char *arg1, char *reply){
 	char buffer[BUFSIZ];
 	sprintf(buffer, "mkdir %s", arg1);
 	FILE *fp = popen(buffer, "r");
-		
 	if(fp == NULL){ // Error making dir
 		printf("MKDIR error\n");
-		sprintf(reply, "-1");
+		send_int(s, -1);
 		return;
 	}
 
-	sprintf(reply, "1");
+	send_int(s, 1);
 }
 
 void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
 	DIR* dir = opendir(arg1);
 	if(dir == NULL){
-		sprintf(reply, "-1");
-		send_fn(s, reply);
 		printf("Directory does not exist\n");
+		send_int(s, -1);
 		closedir(dir);
 		return;
 	}
@@ -298,11 +291,9 @@ void rm_dir(int s, char *arg1, char *reply){
 	}
 	fread(reply, sizeof(char), BUFSIZ, fp);
 	if(strcmp(reply, "") == 0){
-		sprintf(reply, "1"); // empty
-		send_fn(s, reply);
+		send_int(s, 1); // empty
 	} else {
-		sprintf(reply, "-2"); // not empty
-		send_fn(s, reply);
+		send_int(s, -2); // not empty
 		return;
 	}
 
@@ -315,14 +306,10 @@ void rm_dir(int s, char *arg1, char *reply){
 		printf("delete the dir\n");
 		// Delete the dir
 		if(rmdir(arg1) >= 0){
-			sprintf(reply, "1"); // delete success
+			send_int(s, 1); // delete success
 		} else {
-			sprintf(reply, "-1"); // delete failed
+			send_int(s, -1); // delete failed
 		}
-		printf("rmdir replying with: %s\n", reply);
-		send_fn(s, reply);
-	} else { // Don't delete the directory
-		printf("do nothing\n");
 	}
 }
 
