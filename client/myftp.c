@@ -13,7 +13,10 @@
 void client(char*, int);
 void mkdir(int, char *, char*, char*);
 void rmdir(int, char *, char*);
+void rmfile(int, char *, char*);
+void cd(int, char *, char*);
 void send_fn(int, char*);
+void send_int(int, int[]);
 void recv_fn(int, char*);
 void download(int, char *);
 void upload(int, char *);
@@ -82,6 +85,14 @@ void client(char* host, int port){
 			char *arg1 = strtok(NULL, " ");
 			rmdir(s, arg1, command);
 			printf("End of rmdir\n");
+		} else if(strcmp(command, "RM") == 0){
+			char *arg1 = strtok(NULL, " ");
+			rmfile(s, arg1, command);
+			printf("End of rm\n");
+		} else if(strcmp(command, "CD") == 0){
+			char *arg1 = strtok(NULL, " ");
+			cd(s, arg1, command);
+			printf("End of cd\n");
 		} else if(strcmp(command, "LS") == 0){
 			send_fn(s, buf);
 			recv_fn(s, reply);
@@ -92,6 +103,9 @@ void client(char* host, int port){
             upload(s, command);
 	    } else {
 			printf("Unknown Operation\n");
+			//send_fn(s, command);
+			//int a[1] = {123};
+			//send_int(s, a);
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -101,10 +115,74 @@ void client(char* host, int port){
 	close(s); 
 }
 
+void rmfile(int s, char *arg1, char *command){
+	char buf[BUFSIZ];
+	char reply[BUFSIZ];
+	// Check if no file was passed
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
+		printf("Please pass a file name\n");
+		return;
+	}
+	sprintf(buf, "%s %s", command, arg1);
+	send_fn(s, buf);
+	recv_fn(s, reply);
+	if(strcmp(reply, "-1") == 0){
+		printf("The file does not exist on the server\n");
+		return;
+	} else{
+		printf("Confirm delete? Yes/No: ");
+	}
+	bzero((char *)&buf, sizeof(buf));
+	bzero((char *)&reply, sizeof(reply));
+	
+	// Ask the user for confirmation of delete
+	char str[5];
+	scanf("%s", str);
+	if(strcmp(str, "Yes") == 0){ // Send Yes
+		printf("Yes Case\n");
+		sprintf(buf, "Yes");
+		send_fn(s, buf);
+		printf("Sent yes - waiting for reply\n");
+		recv_fn(s, reply);
+		printf("Got the reply: %s\n", reply);
+		if(strcmp(reply, "1") == 0){
+			printf("File deleted\n");
+		} else if(strcmp(reply, "-1") == 0){
+			printf("Faild to delete file\n");
+		}
+	} else { // Send No
+		printf("Delete abandoned by user!\n");
+		sprintf(buf, "No");
+		send_fn(s, buf);
+	}
+	// Consume the '\n' after the Yes/No confirmation
+	fgets(buf, sizeof(buf), stdin);
+}
+
+void cd(int s, char *arg1, char *command){
+	char buf[BUFSIZ];
+	char reply[BUFSIZ];
+	// Check if no file was passed
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
+		printf("Please pass a valid directory name\n");
+		return;
+	}
+	sprintf(buf, "%s %s", command, arg1);
+	send_fn(s, buf);
+	recv_fn(s, reply);
+	if(strcmp(reply, "-2") == 0){
+		printf("The directory does not exist on the server\n");
+	} else if(strcmp(reply, "-1") == 0){
+		printf("Error in changing directory\n"); 
+  } else{
+		printf("Changed current directory\n");
+	}
+}
+
 void mkdir(int s, char *arg1, char *command, char *reply){
 	char buf[BUFSIZ];
 	// Check if no directory was passed
-	if(strcmp(arg1, "") == 0){
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
 		return;
 	}
@@ -125,7 +203,7 @@ void rmdir(int s, char *arg1, char *command){
 	char buf[BUFSIZ];
 	char reply[BUFSIZ];
 	// Check if no directory was passed
-	if(strcmp(arg1, "") == 0){
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
 		return;
 	}
@@ -165,6 +243,8 @@ void rmdir(int s, char *arg1, char *command){
 		sprintf(buf, "No");
 		send_fn(s, buf);
 	}
+	// Consume the '\n' after the Yes/No confirmation
+	fgets(buf, sizeof(buf), stdin);
 }
 
 void download(int socket, char *command){
@@ -347,6 +427,12 @@ void upload(int socket, char *command){
 
 void send_fn(int socket, char *buf){
 	if(send(socket, buf, strlen(buf)+1, 0)==-1){
+		printf("Client send error");
+	}
+}
+
+void send_int(int socket, int value[]){
+	if(send(socket, (char*) value, sizeof(value), 0)==-1){
 		printf("Client send error");
 	}
 }

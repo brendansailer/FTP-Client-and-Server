@@ -20,8 +20,11 @@ void complete_request(int, char *);
 void ls(char *);
 void mk_dir(char *, char *);
 void rm_dir(int, char *, char*);
+void rm_file(int, char *, char*);
+void cd(int, char *, char*);
 void send_fn(int, char*);
 void recv_fn(int socket, char*);
+void recv_int(int socket, int []);
 void download(int, char *);
 void upload(int, char *);
 
@@ -118,7 +121,18 @@ void complete_request(int s, char * buf){
 	} else if(strcmp(command, "RMDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
 		rm_dir(s, arg1, reply);
+	
+	} else if(strcmp(command, "CD") == 0){
+		printf("We are in the CD case\n");
+		char *arg1 = strtok(NULL, " \n");
+		cd(s, arg1, reply);
 
+	} else if(strcmp(command, "RM") == 0){
+		printf("We are in the RM case\n");
+		char *arg1 = strtok(NULL, " \n");
+		rm_file(s, arg1, reply);
+
+	
 	} else if(strcmp(command, "DN") == 0){
 	    char *arg1          = strtok(NULL, " ");
         int filename_length = atoi(arg1);
@@ -141,10 +155,68 @@ void complete_request(int s, char * buf){
 
         upload(s, filename);
 	} else {
+		int a[1];
+		recv_int(s, a);
+		printf("The value of a is: %d\n", a[0]);
 		printf("Bad operation - not recognized\n");
 	}
 	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
+}
+
+void rm_file(int s, char *arg1, char *reply){
+	/* Check if file exists */
+	char dest[100] = {"./"};
+	strcat(dest, arg1);
+	FILE *fp = fopen(dest, "r");
+	if(fp == NULL){
+		sprintf(reply, "-1");
+		send_fn(s, reply);
+		printf("File does not exist\n");
+		return;
+	}
+	fclose(fp);
+	// Confirm file exists
+	sprintf(reply, "1");
+	send_fn(s, reply);
+	
+	// Get confirmation of delete from client	
+	char buffer[BUFSIZ];
+	bzero((char *)&buffer, sizeof(buffer));
+	recv_fn(s, buffer);
+	printf("Got the confirmation: %s\n", buffer);
+
+	if(strcmp(buffer, "Yes") == 0){
+		printf("delete the file\n");
+		// Delete the file
+		if(remove(dest) >= 0){
+			sprintf(reply, "1"); // delete success
+		} else {
+			sprintf(reply, "-1"); // delete failed
+		}
+		printf("rm replying with: %s\n", reply);
+		send_fn(s, reply);
+	} else { // Don't delete the directory
+		printf("do nothing\n");
+	}
+}
+
+void cd(int s, char *arg1, char *reply){
+	struct stat path;
+	if(stat(arg1, &path) < 0){
+		sprintf(reply, "-2"); // Directory does not exist
+	} else if(!S_ISDIR(path.st_mode)){
+		sprintf(reply, "-1"); // Not a directory
+	}
+	
+	if(chdir(arg1)){
+		sprintf(reply, "-1");
+	} else {
+		sprintf(reply, "1");
+	}
+	
+	printf("cd replying with: %s\n", reply);
+	send_fn(s, reply);
 }
 
 void ls(char *reply){
@@ -186,9 +258,7 @@ void mk_dir(char *arg1, char *reply){
 
 void rm_dir(int s, char *arg1, char *reply){
 	/* Check if directory exists */
-	char dest[100] = {"./"};
-	strcat(dest, arg1);
-	DIR* dir = opendir(dest);
+	DIR* dir = opendir(arg1);
 	if(dir == NULL){
 		sprintf(reply, "-1");
 		send_fn(s, reply);
@@ -208,11 +278,12 @@ void rm_dir(int s, char *arg1, char *reply){
 	fread(reply, sizeof(char), BUFSIZ, fp);
 	if(strcmp(reply, "") == 0){
 		sprintf(reply, "1"); // empty
+		send_fn(s, reply);
 	} else {
 		sprintf(reply, "-2"); // not empty
+		send_fn(s, reply);
+		return;
 	}
-	printf("Reply sent\n");
-	send_fn(s, reply);
 
 	// Get confirmation of delete from client	
 	bzero((char *)&buffer, sizeof(buffer));
@@ -358,6 +429,13 @@ void send_fn(int socket, char *buf){
 void recv_fn(int socket, char *buf){
 	int len;
 	if((len=recv(socket, buf, sizeof(buf), 0))==-1){
+			perror("Server Received Error!");
+	}
+}
+
+void recv_int(int socket, int value[]){
+	int len;
+	if((len=recv(socket, value, sizeof(value), 0))==-1){
 			perror("Server Received Error!");
 	}
 }
