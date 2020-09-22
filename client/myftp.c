@@ -102,9 +102,9 @@ void client(char* host, int port){
             printf("End of download\n");
 	    } else {
 			printf("Unknown Operation\n");
-			send_fn(s, command);
-			int a[1] = {123};
-			send_int(s, a);
+			//send_fn(s, command);
+			//int a[1] = {123};
+			//send_int(s, a);
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -202,7 +202,7 @@ void rmdir(int s, char *arg1, char *command){
 	char buf[BUFSIZ];
 	char reply[BUFSIZ];
 	// Check if no directory was passed
-	if(strcmp(arg1, "") == 0){
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
 		printf("Please pass a directory name\n");
 		return;
 	}

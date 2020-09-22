@@ -27,8 +27,6 @@ void recv_fn(int socket, char*);
 void recv_int(int socket, int []);
 void download(int, char *);
 
-char PATH[BUFSIZ] = {"."};
-
 int main(int argc, char * argv[]) {
 		if(argc == 2){
 			int port = atoi(argv[1]);
@@ -201,26 +199,21 @@ void rm_file(int s, char *arg1, char *reply){
 }
 
 void cd(int s, char *arg1, char *reply){
-	/* Check if file exists */
-	char temp_path[BUFSIZ];
-	strcat(temp_path, PATH);
-	strcat(temp_path, arg1);
-
-	printf("Trying: %s - old path: %s\n", temp_path, PATH);
 	struct stat path;
-	if(stat(temp_path, &path) < 0){ // DNE
-		sprintf(reply, "-2");
-	} else if(!S_ISDIR(path.st_mode)){ // Not a directory
+	if(stat(arg1, &path) < 0){
+		sprintf(reply, "-2"); // Directory does not exist
+	} else if(!S_ISDIR(path.st_mode)){
+		sprintf(reply, "-1"); // Not a directory
+	}
+	
+	if(chdir(arg1)){
 		sprintf(reply, "-1");
 	} else {
 		sprintf(reply, "1");
-		memcpy(PATH, temp_path, BUFSIZ);
 	}
 	
 	printf("cd replying with: %s\n", reply);
 	send_fn(s, reply);
-	printf("The new path is: %s\n", PATH);
-	bzero((char*)&temp_path, sizeof(temp_path));
 }
 
 void ls(char *reply){
