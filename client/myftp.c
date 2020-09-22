@@ -241,8 +241,7 @@ void rmdir(int s, char *arg1, char *command){
 	char str[5];
 	scanf("%s", str);
 	if(strcmp(str, "Yes") == 0){ // Send Yes
-		sprintf(buf, "Yes");
-		send_fn(s, buf);
+		send_fn(s, "Yes");
 		
 		response = recv_int(s);
 		if(response == 1){
@@ -252,8 +251,7 @@ void rmdir(int s, char *arg1, char *command){
 		}
 	} else { // Send No
 		printf("Delete abandoned by user!\n");
-		sprintf(buf, "No");
-		send_fn(s, buf);
+		send_fn(s, "No");
 	}
 
 	// Consume the '\n' after the Yes/No confirmation

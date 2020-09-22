@@ -233,15 +233,17 @@ void ls(int s, char *reply){
 		return;
 	}
 	
+	//send the current portion of the LS
 	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	printf(file_buf);
 	while(count > 0){
-		//send the current portion of the LS
 		send_fn(s, file_buf);
 	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	}
 	
-	send_fn(s, "-1"); // Signal the end of the transmission
+	// Signal the end of the transmission
+	send_fn(s, "-1"); 
+
 	bzero((char *)&file_buf, sizeof(file_buf));
 	bzero((char *)&cwd, sizeof(cwd));
 	bzero((char *)&command, sizeof(command));
@@ -302,9 +304,7 @@ void rm_dir(int s, char *arg1, char *reply){
 	recv_fn(s, buffer);
 	printf("Got the confirmation: %s\n", buffer);
 
-	if(strcmp(buffer, "Yes") == 0){
-		printf("delete the dir\n");
-		// Delete the dir
+	if(strcmp(buffer, "Yes") == 0){ // Delete the dir
 		if(rmdir(arg1) >= 0){
 			send_int(s, 1); // delete success
 		} else {
