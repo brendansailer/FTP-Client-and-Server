@@ -316,7 +316,6 @@ void rm_dir(int s, char *arg1, char *reply){
 void download(int s, char *filename){
     FILE *file;
     char md5[BUFSIZ];
-    char file_size[BUFSIZ];
     char file_buf[BUFSIZ];
 
     //Check the file existence
@@ -327,36 +326,56 @@ void download(int s, char *filename){
         FILE* command_result = popen(command, "r");
 	    fread(md5, sizeof(char), 32, command_result);
 
+        printf("send{md5}: %s", md5);
         send_fn(s, md5);
+        usleep(1000);
 
         //Sends the file size
         fseek(file, 0L, SEEK_END);
-        long int remaining = ftell(file);
+        int remaining = ftell(file);
         rewind(file);
-        sprintf(file_size, "%lu", remaining);
+        send_int(s, remaining);
+        printf("FILE_SIZE: %d", remaining);
 
-        send_fn(s, file_size);
-
-        bzero((char *)&file_size, sizeof(file_size));
         usleep(1000);
 
+        int chunks = (BUFSIZ + remaining -1) / BUFSIZ;
+
+
+        int reading;
         //Reads the entire file into a buffer
-        while(remaining > 0){
-            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+        while(chunks > 0){
+            if(remaining > BUFSIZ)
+                reading = BUFSIZ;
+            else
+                reading = remaining;
+            
+            int count = fread(file_buf, sizeof(char), reading, file);
             if(count < 0){
                 perror("fread error");
                 return;
             }
             remaining -= count;
 
+            printf("send{file}: %s", file_buf);
             //send the current portion of the file
             send_fn(s, file_buf);
+            bzero((char *)&file_buf, sizeof(file_buf));
+            int ack = recv_int(s);
+            printf("ACK\n\n\n\n\n\n");
+            if (ack != 1){
+                perror("Client did not receive the file\n");
+                return;
+            }
+            chunks -= 1;
+            printf("CHUNKS %d\n", chunks);
         }
 
     } else{ //If file doesnt exist return -1
         sprintf(md5, "-1");
         send_fn(s, md5);
     }
+    //Zero out buffers
     bzero((char *)&md5, sizeof(md5));
 }
 
