@@ -295,22 +295,37 @@ void download(int socket, char *command){
     sscanf(file_size, "%d", &remaining);
     int total_bytes = remaining;
     int read;
+		int length;
 
     FILE *wr = fopen(filename, "w+");
 
+		if(wr == NULL){
+			printf("CANNOT OPEN FILE\n");
+		}
+
     //Writes the file to the disk portion by portion
     while(remaining > 0){
+				if(remaining > BUFSIZ){
+						length = BUFSIZ;
+				} else {
+						length = remaining;
+				}
+
         //Gets the file data
-        if((read = recv(socket, file_portion, remaining, 0))==-1){
-		    perror("myftp: error receiving reply");
-	    }
+        if((read = recv(socket, file_portion, length, 0))==-1){
+		    	perror("myftp: error receiving reply");
+	      }
+
+				printf("remaining: %d read: %d\n", remaining, read);
         remaining -= read;
 
         //Writes the file to the disk
-        fwrite(file_portion, sizeof(char), read, wr);
-    }
+        fwrite(file_portion, sizeof(char), length, wr);
+				bzero((char *)&file_portion, sizeof(file_portion));
+		}
 
     fclose(wr);
+		//recv_fn(socket, md5);
 
     //Gets the time interval initial value
     struct timeval t1;

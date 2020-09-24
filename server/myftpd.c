@@ -105,8 +105,10 @@ void server(int port){
 void complete_request(int s, char * buf){
     char *command = strtok(buf, " ");
 
-    if(command == NULL)
-        return;
+    if(command == NULL){
+        printf("GOT A NULL COMMAND\n");
+				return;
+		}
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
@@ -314,6 +316,7 @@ void rm_dir(int s, char *arg1, char *reply){
 }
 
 void download(int s, char *filename){
+		int length;
     FILE *file;
     char md5[BUFSIZ];
     char file_size[BUFSIZ];
@@ -325,7 +328,7 @@ void download(int s, char *filename){
         char command[BUFSIZ];
         sprintf(command, "md5sum %s", filename);
         FILE* command_result = popen(command, "r");
-	    fread(md5, sizeof(char), 32, command_result);
+	      fread(md5, sizeof(char), 32, command_result);
 
         send_fn(s, md5);
 
@@ -335,22 +338,36 @@ void download(int s, char *filename){
         rewind(file);
         sprintf(file_size, "%lu", remaining);
 
+				//strcat(md5, " ");
+				//strcat(md5, file_size);
+				//printf("HERE: %s\n", md5);
         send_fn(s, file_size);
 
         bzero((char *)&file_size, sizeof(file_size));
         usleep(1000);
+				printf("File size: %d\n", remaining);
 
         //Reads the entire file into a buffer
         while(remaining > 0){
-            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+						if(remaining > BUFSIZ){
+							length = BUFSIZ;
+						} else {
+							length = remaining;
+						}
+
+            int count = fread(file_buf, sizeof(char), length, file);
             if(count < 0){
                 perror("fread error");
                 return;
             }
             remaining -= count;
+						printf("Length: %d Count: %d and remaining: %d\n", length, count, remaining);
 
             //send the current portion of the file
-            send_fn(s, file_buf);
+						if(send(s, file_buf, length, 0)==-1){
+							printf("Server response error");
+						}
+    				bzero((char *)&file_buf, sizeof(file_buf));
         }
 
     } else{ //If file doesnt exist return -1
