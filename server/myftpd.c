@@ -155,10 +155,6 @@ void complete_request(int s, char * buf){
         }
         upload(s, filename);
 
-	} else {
-		printf("Bad operation - not recognized\n");
-		printf("The int is: %d\n", recv_int(s));
-		send_int(s, 4321);
 	}
 	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
@@ -184,6 +180,7 @@ void rm_file(int s, char *arg1, char *reply){
 
 	if(strcmp(buffer, "Yes") == 0){ // Delete the file
 		if(remove(arg1) >= 0){
+			printf("Delete success\n");
 			send_int(s, 1); // delete success
 		} else {
 			send_int(s, -1); // delete failed

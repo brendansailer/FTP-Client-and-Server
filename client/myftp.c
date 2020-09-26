@@ -108,11 +108,6 @@ void client(char* host, int port){
 	    } else if(strcmp(command, "UP") == 0){
             upload(s, command);
 
-	    } else {
-			printf("Unknown Operation\n");
-			send_fn(s, command);
-			send_int(s, 1234);
-			printf("Got the int is: %d\n", recv_int(s));
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -186,14 +181,13 @@ void rmfile(int s, char *arg1, char *command){
 		send_fn(s, "Yes");
 		int result = recv_int(s);
 
-		if(result == 0)
+		if(result >= 0)
 			printf("File deleted\n");
 		else if(result == -1)
 			printf("Faild to delete file\n");
-		else { // Send No
-			printf("Delete abandoned by user!\n");
-			send_fn(s, "No");
-		}
+	} else { // Send No
+		printf("Delete abandoned by user!\n");
+		send_fn(s, "No");
 	}
 
 	// Consume the '\n' after the Yes/No confirmation
