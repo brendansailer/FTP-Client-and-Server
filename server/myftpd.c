@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
+#include <sys/socket.h> 
 #include <netinet/in.h>
 #include <netdb.h>
 #include <dirent.h>
@@ -380,9 +380,6 @@ void download(int s, char *filename){
         rewind(file);
         sprintf(file_size, "%lu", remaining);
 
-				//strcat(md5, " ");
-				//strcat(md5, file_size);
-				//printf("HERE: %s\n", md5);
         send_fn(s, file_size);
 
         bzero((char *)&file_size, sizeof(file_size));
@@ -435,26 +432,33 @@ void upload(int s, char *filename){
         return;
     }
 
-    int file_remaining, written;
-    sscanf(response, "%d", &file_remaining);
+    int remaining, written;
+    sscanf(response, "%d", &remaining);
     FILE *wr = fopen(filename, "w+");
-    int file_size = file_remaining;
+    int file_size = remaining;
+	int length;
 
     //Gets the time interval initial value
     struct timeval t0;
     gettimeofday(&t0, 0);
 
     //Writes the file to the disk portion by portion
-    while( file_remaining > 0 ){
-        if((written = recv(s, file_portion, file_remaining, 0)) == -1){
+    while( remaining > 0 ){
+		if(remaining > BUFSIZ){
+			length = BUFSIZ;
+		} else {
+			length = remaining;
+		}
+
+        if((written = recv(s, file_portion, length, 0)) == -1){
             perror("error receiving reply\n");
-            return;
         }
 
-        file_remaining -= written;
+        remaining -= written;
 
-        //Writes the file to the disk
+        //Writes the file to the disk and zeroes the buffer
         fwrite(file_portion, sizeof(char), written, wr);
+		bzero((char *)&file_portion, sizeof(file_portion));
     }
 
     fclose(wr);

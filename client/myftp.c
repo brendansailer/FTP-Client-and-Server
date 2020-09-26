@@ -339,7 +339,6 @@ void download(int socket, char *command){
 		}
 
     fclose(wr);
-		//recv_fn(socket, md5);
 
     //Gets the time interval initial value
     struct timeval t1;
@@ -408,9 +407,17 @@ void upload(int socket, char *command){
 
         usleep(1000);
 
+		int length;
+
         //Reads the entire file into a buffer
         while( remaining > 0){
-            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+			if(remaining > BUFSIZ){
+				length = BUFSIZ;
+			} else {
+				length = remaining;
+			}
+					
+            int count = fread(file_buf, sizeof(char), length, file);
             if( count < 0 ){
                 perror("fread error");
                 return;
@@ -418,8 +425,11 @@ void upload(int socket, char *command){
             remaining -= count;
             
             //send the current portion of the file
-            send_fn(socket, file_buf);
-        }
+			if(send(socket, file_buf, length, 0)==-1){
+				printf("Server response error");
+			}
+			bzero((char *)&file_buf, sizeof(file_buf));     
+		}
 
         fclose(file);
 
