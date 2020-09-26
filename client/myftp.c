@@ -28,7 +28,7 @@ int main(int argc, char * argv[]){
 	if(argc == 3) {
 		char *host = argv[1];
 		int port = atoi(argv[2]);
-		printf("Connecting to %s on port %d", host, port);
+		printf("Connecting to %s on port %d\n", host, port);
 		client(host, port);
 	}
 	else {
@@ -63,7 +63,6 @@ void client(char* host, int port){
 		exit(1);
 	}
 
-	printf("Welcome to your first TCP client! To quit, type \'Exit\'\n");
 	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0){
 		perror("myftp: connect");
 		close(s);
@@ -357,7 +356,7 @@ void download(int socket, char *command){
         remaining -= read;
 
         //Writes the file to the disk
-        fwrite(file_portion, sizeof(char), length, wr);
+        fwrite(file_portion, sizeof(char), read, wr);
 		bzero((char *)&file_portion, sizeof(file_portion));
 	}
 
