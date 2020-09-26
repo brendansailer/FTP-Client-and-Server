@@ -120,10 +120,21 @@ void client(char* host, int port){
 }
 
 void head(int s, char* command, char* arg1){
-	char buff[BUFSIZ];
+	// Check if no file was passed
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
+		printf("Please pass a file name\n");
+		return;
+	}
+	sprintf(command, "%s %s", command, arg1);
 	send_fn(s, command); //Sends the command to the server
 	
-	recv_fn(s, buff); 
+	char buff[BUFSIZ];	
+	recv_fn(s, buff);
+	if(strcmp(buff, "-1") == 0){
+		printf("The file does not exist on the server\n");
+		return;
+	}
+	 
 	while(strcmp(buff, "-1") != 0){ // Loop over the LS data until -1 is recevied
 		printf(buff);
 		recv_fn(s, buff); // Get the size of the LS response
