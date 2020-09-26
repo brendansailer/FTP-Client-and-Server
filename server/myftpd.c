@@ -31,14 +31,14 @@ void download(int, char *);
 void upload(int, char *);
 
 int main(int argc, char * argv[]) {
-		if(argc == 2){
-			int port = atoi(argv[1]);
-			printf("Waiting for connections on port %d\n", port);
-			server(port);
-		} else {
-			perror("useage: myftpd (port)");
-			exit(1);
-		}
+	if(argc == 2){
+		int port = atoi(argv[1]);
+		printf("Waiting for connections on port %d\n", port);
+		server(port);
+	} else {
+		perror("useage: myftpd (port)");
+		exit(1);
+	}
 }
 
 void server(int port){
@@ -60,7 +60,6 @@ void server(int port){
 	}
 
 	// set socket option
-	// TODO - the code he gave us was wrong
 	int opt = 1;
 	if((setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)& opt, sizeof(int)))<0){
 		perror ("simplex-talk:setscokt");
@@ -109,12 +108,11 @@ void complete_request(int s, char * buf){
     if(command == NULL){
         printf("GOT A NULL COMMAND\n");
 				return;
-		}
+	}
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		ls(s, reply);
-	
 
 	} else if(strcmp(command, "HEAD") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -129,17 +127,12 @@ void complete_request(int s, char * buf){
 		rm_dir(s, arg1, reply);
 	
 	} else if(strcmp(command, "CD") == 0){
-		printf("We are in the CD case\n");
 		char *arg1 = strtok(NULL, " \n");
 		cd(s, arg1, reply);
 
 	} else if(strcmp(command, "RM") == 0){
-		printf("We are in the RM case\n");
 		char *arg1 = strtok(NULL, " \n");
-		//int length = recv_int(s);
-		//printf("The length is: %d\n", length);
 		rm_file(s, arg1, reply);
-
 	
 	} else if(strcmp(command, "DN") == 0){
 	    char *arg1          = strtok(NULL, " ");
@@ -149,8 +142,8 @@ void complete_request(int s, char * buf){
         if(strlen(filename) != filename_length){
             exit(1);
         }
-
         download(s, filename);
+
 	} else if(strcmp(command, "UP") == 0){
 	    char *arg1          = strtok(NULL, " ");
         int filename_length = atoi(arg1);
@@ -160,8 +153,8 @@ void complete_request(int s, char * buf){
             printf("Filename and filename length do not match");
             exit(1);
         }
-
         upload(s, filename);
+
 	} else {
 		printf("Bad operation - not recognized\n");
 		printf("The int is: %d\n", recv_int(s));
@@ -172,13 +165,6 @@ void complete_request(int s, char * buf){
 }
 
 void rm_file(int s, char *arg1, char *reply){
-	/*
-	// Verify length of the file name is correct
-	if(length != strlen(arg1)){
-		printf("The filename was transmitted incorrectly!\n");
-		send_int(s, -1);
-	} */
-
 	// Check if file exists 
 	FILE *fp = fopen(arg1, "r");
 	if(fp == NULL){
@@ -252,10 +238,9 @@ void head(int s, char *arg1, char *reply){
 	
 	//send the current portion of the HEAD
 	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
-	printf(file_buf);
 	while(count > 0){
 		send_fn(s, file_buf);
-	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	  	count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	}
 	
 	// Signal the end of the transmission
@@ -289,10 +274,9 @@ void ls(int s, char *reply){
 	
 	//send the current portion of the LS
 	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
-	printf(file_buf);
 	while(count > 0){
 		send_fn(s, file_buf);
-	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	  	count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	}
 	
 	// Signal the end of the transmission
@@ -305,7 +289,6 @@ void ls(int s, char *reply){
 
 void mk_dir(int s, char *arg1, char *reply){
 	/* Check if the directory already exists */
-	printf("Directory Name: %s\n", arg1);
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
 		printf("Directory already exists\n");
@@ -356,7 +339,6 @@ void rm_dir(int s, char *arg1, char *reply){
 	// Get confirmation of delete from client	
 	bzero((char *)&buffer, sizeof(buffer));
 	recv_fn(s, buffer);
-	printf("Got the confirmation: %s\n", buffer);
 
 	if(strcmp(buffer, "Yes") == 0){ // Delete the dir
 		if(rmdir(arg1) >= 0){
@@ -368,7 +350,7 @@ void rm_dir(int s, char *arg1, char *reply){
 }
 
 void download(int s, char *filename){
-		int length;
+	int length;
     FILE *file;
     char md5[BUFSIZ];
     char file_size[BUFSIZ];
@@ -380,7 +362,7 @@ void download(int s, char *filename){
         char command[BUFSIZ];
         sprintf(command, "md5sum %s", filename);
         FILE* command_result = popen(command, "r");
-	      fread(md5, sizeof(char), 32, command_result);
+	    fread(md5, sizeof(char), 32, command_result);
 
         send_fn(s, md5);
 
@@ -394,15 +376,14 @@ void download(int s, char *filename){
 
         bzero((char *)&file_size, sizeof(file_size));
         usleep(1000);
-				printf("File size: %d\n", remaining);
 
         //Reads the entire file into a buffer
         while(remaining > 0){
-						if(remaining > BUFSIZ){
-							length = BUFSIZ;
-						} else {
-							length = remaining;
-						}
+			if(remaining > BUFSIZ){
+				length = BUFSIZ;
+			} else {
+				length = remaining;
+			}
 
             int count = fread(file_buf, sizeof(char), length, file);
             if(count < 0){
@@ -410,19 +391,21 @@ void download(int s, char *filename){
                 return;
             }
             remaining -= count;
-						printf("Length: %d Count: %d and remaining: %d\n", length, count, remaining);
 
             //send the current portion of the file
-						if(send(s, file_buf, length, 0)==-1){
-							printf("Server response error");
-						}
-    				bzero((char *)&file_buf, sizeof(file_buf));
+			if(send(s, file_buf, length, 0)==-1){
+				printf("Server response error");
+				return;
+			}
+
+    		bzero((char *)&file_buf, sizeof(file_buf));
         }
 
     } else{ //If file doesnt exist return -1
         sprintf(md5, "-1");
         send_fn(s, md5);
     }
+
     bzero((char *)&md5, sizeof(md5));
 }
 
@@ -462,6 +445,7 @@ void upload(int s, char *filename){
 
         if((written = recv(s, file_portion, length, 0)) == -1){
             perror("error receiving reply\n");
+			return;
         }
 
         remaining -= written;
