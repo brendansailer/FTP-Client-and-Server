@@ -18,7 +18,7 @@
 void server(int);
 void complete_request(int, char *);
 void ls(int, char *);
-void head(int, char *);
+void head(int, char *, char *);
 void mk_dir(int, char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
@@ -116,8 +116,9 @@ void complete_request(int s, char * buf){
 		ls(s, reply);
 	
 
-	} else if(strcmp(command, "HEAD\n") == 0){
-		head(s, reply);
+	} else if(strcmp(command, "HEAD") == 0){
+		char *arg1 = strtok(NULL, " \n");
+		head(s, arg1, reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -219,10 +220,19 @@ void cd(int s, char *arg1, char *reply){
 	}
 }
 
-void head(int s, char *reply){
+void head(int s, char *arg1, char *reply){
 	char file_buf[BUFSIZ];
 	char cwd[BUFSIZ];
 	char command[BUFSIZ];
+	
+	// Check if file exists
+	FILE *fp = fopen(arg1, "r");
+	if(fp == NULL){
+		printf("File does not exist\n");
+		send_fn(s, "-1");
+		return;
+	}
+	fclose(fp);
 
 	// Get the current working directory
 	if(getcwd(cwd, sizeof(cwd)) == NULL){
@@ -231,16 +241,16 @@ void head(int s, char *reply){
 	}
 
 	// Prepare the command for popen
-	sprintf(command, "head %s", cwd);
+	sprintf(command, "head %s/%s", cwd, arg1);
 
-	FILE *fp = popen(command, "r");
+	fp = popen(command, "r");
 	if(fp == NULL){
 		printf("LS error\n");
 		send_fn(s, "-1");
 		return;
 	}
 	
-	//send the current portion of the LS
+	//send the current portion of the HEAD
 	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	printf(file_buf);
 	while(count > 0){
