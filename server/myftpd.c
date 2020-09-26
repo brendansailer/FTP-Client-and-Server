@@ -180,7 +180,6 @@ void rm_file(int s, char *arg1, char *reply){
 
 	if(strcmp(buffer, "Yes") == 0){ // Delete the file
 		if(remove(arg1) >= 0){
-			printf("Delete success\n");
 			send_int(s, 1); // delete success
 		} else {
 			send_int(s, -1); // delete failed
