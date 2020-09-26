@@ -263,6 +263,7 @@ void download(int socket, char *command){
     int filename_length = strlen(filename);
     char client_command[BUFSIZ];
     char md5[BUFSIZ];
+    char file_size[BUFSIZ];
     char file_portion[BUFSIZ];
 
     sprintf(client_command, "%s %d %s", command, filename_length, filename);
@@ -286,31 +287,28 @@ void download(int socket, char *command){
     } 
                 
     //Gets the size of the file
-    int file_size = recv_int(socket);
-    int read = 1;
+	if((recv(socket, file_size, sizeof(file_size), 0))==-1){
+		perror("myftp: error receiving reply");
+	}
+    
+    int remaining;
+    sscanf(file_size, "%d", &remaining);
+    int total_bytes = remaining;
+    int read;
 
     FILE *wr = fopen(filename, "w+");
 
     //Writes the file to the disk portion by portion
-    while(read > 0){
+    while(remaining > 0){
         //Gets the file data
-        if((read = recv(socket, file_portion, sizeof(file_portion), 0))==-1){
+        if((read = recv(socket, file_portion, remaining, 0))==-1){
 		    perror("myftp: error receiving reply");
-            send_int(socket, -1); //Aknowledge server with error
 	    }
-        printf("r(f): %s\n", file_portion);
-        printf("read %d\n", read);
+        remaining -= read;
 
         //Writes the file to the disk
         fwrite(file_portion, sizeof(char), read, wr);
-        bzero((char *)&file_portion, sizeof(file_portion));
-        
-        //Aknowledge the server
-        send_int(socket, 1);
     }
-
-    char buf[BUFSIZ];
-    recv_fn(socket, buf);
 
     fclose(wr);
 
@@ -319,7 +317,7 @@ void download(int socket, char *command){
     gettimeofday(&t1, 0);
 
     long elapsed = (t1.tv_sec - t0.tv_sec)*1000000  + (t1.tv_usec - t0.tv_usec);
-    printf("%d bytes transferred in %f seconds: %f Megabytes/sec\n", file_size, elapsed/1000000., file_size/(float)elapsed);
+    printf("%s bytes transferred in %f seconds: %f Megabytes/sec\n", file_size, elapsed/1000000., total_bytes/(float)elapsed);
 
     //Computes the md5 of the written file
     char res[BUFSIZ];
@@ -334,10 +332,11 @@ void download(int socket, char *command){
         printf("MD5 hash: %s (matches)\n", md5);
     }
 
-    bzero((char *)&client_command, sizeof(client_command));
+    bzero((char *)&file_size, sizeof(file_size));
     bzero((char *)&md5_res, sizeof(md5_res));
     bzero((char *)&res, sizeof(res));
     bzero((char *)&md5, sizeof(md5));
+    bzero((char *)&file_portion, sizeof(file_portion));
 }
 
 void upload(int socket, char *command){
@@ -445,7 +444,7 @@ void send_fn(int socket, char *buf){
 
 void recv_fn(int socket, char *reply){
 	int length;
-	if((length=recv(socket, reply, BUFSIZ, 0))==-1){
+	if((length=recv(socket, reply, sizeof(reply), 0))==-1){
 		perror("myftp: error receiving reply");
 		exit(1);
 	}
