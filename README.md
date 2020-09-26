@@ -2,7 +2,7 @@ server/myftpd.c
 To compile: "make"
 To run: "./myftpd 41023"
 
-client/myftdp.c
+client/myftpd.c
 To comile: "make"
 To run: "./myftpd student02.cse.nd.edu 41023"
 Download: "DN <filename>"
