@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
+#include <sys/socket.h> 
 #include <netinet/in.h>
 #include <netdb.h>
 #include <dirent.h>
@@ -18,6 +18,7 @@
 void server(int);
 void complete_request(int, char *);
 void ls(int, char *);
+void head(int, char *, char *);
 void mk_dir(int, char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
@@ -30,14 +31,14 @@ void download(int, char *);
 void upload(int, char *);
 
 int main(int argc, char * argv[]) {
-		if(argc == 2){
-			int port = atoi(argv[1]);
-			printf("Waiting for connections on port %d\n", port);
-			server(port);
-		} else {
-			perror("useage: myftpd (port)");
-			exit(1);
-		}
+	if(argc == 2){
+		int port = atoi(argv[1]);
+		printf("Waiting for connections on port %d\n", port);
+		server(port);
+	} else {
+		perror("useage: myftpd (port)");
+		exit(1);
+	}
 }
 
 void server(int port){
@@ -59,7 +60,6 @@ void server(int port){
 	}
 
 	// set socket option
-	// TODO - the code he gave us was wrong
 	int opt = 1;
 	if((setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char *)& opt, sizeof(int)))<0){
 		perror ("simplex-talk:setscokt");
@@ -105,12 +105,18 @@ void server(int port){
 void complete_request(int s, char * buf){
     char *command = strtok(buf, " ");
 
-    if(command == NULL)
-        return;
+    if(command == NULL){
+        printf("GOT A NULL COMMAND\n");
+				return;
+	}
 	
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		ls(s, reply);
+
+	} else if(strcmp(command, "HEAD") == 0){
+		char *arg1 = strtok(NULL, " \n");
+		head(s, arg1, reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -121,17 +127,12 @@ void complete_request(int s, char * buf){
 		rm_dir(s, arg1, reply);
 	
 	} else if(strcmp(command, "CD") == 0){
-		printf("We are in the CD case\n");
 		char *arg1 = strtok(NULL, " \n");
 		cd(s, arg1, reply);
 
 	} else if(strcmp(command, "RM") == 0){
-		printf("We are in the RM case\n");
 		char *arg1 = strtok(NULL, " \n");
-		//int length = recv_int(s);
-		//printf("The length is: %d\n", length);
 		rm_file(s, arg1, reply);
-
 	
 	} else if(strcmp(command, "DN") == 0){
 	    char *arg1          = strtok(NULL, " ");
@@ -141,8 +142,8 @@ void complete_request(int s, char * buf){
         if(strlen(filename) != filename_length){
             exit(1);
         }
-
         download(s, filename);
+
 	} else if(strcmp(command, "UP") == 0){
 	    char *arg1          = strtok(NULL, " ");
         int filename_length = atoi(arg1);
@@ -152,25 +153,14 @@ void complete_request(int s, char * buf){
             printf("Filename and filename length do not match");
             exit(1);
         }
-
         upload(s, filename);
-	} else {
-		printf("Bad operation - not recognized\n");
-		printf("The int is: %d\n", recv_int(s));
-		send_int(s, 4321);
+
 	}
 	bzero((char *) &buf, sizeof(buf));
 	bzero((char *) &reply, sizeof(reply));
 }
 
 void rm_file(int s, char *arg1, char *reply){
-	/*
-	// Verify length of the file name is correct
-	if(length != strlen(arg1)){
-		printf("The filename was transmitted incorrectly!\n");
-		send_int(s, -1);
-	} */
-
 	// Check if file exists 
 	FILE *fp = fopen(arg1, "r");
 	if(fp == NULL){
@@ -212,6 +202,51 @@ void cd(int s, char *arg1, char *reply){
 	}
 }
 
+void head(int s, char *arg1, char *reply){
+	char file_buf[BUFSIZ];
+	char cwd[BUFSIZ];
+	char command[BUFSIZ];
+	
+	// Check if file exists
+	FILE *fp = fopen(arg1, "r");
+	if(fp == NULL){
+		printf("File does not exist\n");
+		send_fn(s, "-1");
+		return;
+	}
+	fclose(fp);
+
+	// Get the current working directory
+	if(getcwd(cwd, sizeof(cwd)) == NULL){
+		printf("CWD error\n");
+		send_fn(s, "-1");
+	}
+
+	// Prepare the command for popen
+	sprintf(command, "head %s/%s", cwd, arg1);
+
+	fp = popen(command, "r");
+	if(fp == NULL){
+		printf("LS error\n");
+		send_fn(s, "-1");
+		return;
+	}
+	
+	//send the current portion of the HEAD
+	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	while(count > 0){
+		send_fn(s, file_buf);
+	  	count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	}
+	
+	// Signal the end of the transmission
+	send_fn(s, "-1"); 
+
+	bzero((char *)&file_buf, sizeof(file_buf));
+	bzero((char *)&cwd, sizeof(cwd));
+	bzero((char *)&command, sizeof(command));
+}
+
 void ls(int s, char *reply){
 	char file_buf[BUFSIZ];
 	char cwd[BUFSIZ];
@@ -235,10 +270,9 @@ void ls(int s, char *reply){
 	
 	//send the current portion of the LS
 	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
-	printf(file_buf);
 	while(count > 0){
 		send_fn(s, file_buf);
-	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	  	count = fread(file_buf, sizeof(char), BUFSIZ, fp);
 	}
 	
 	// Signal the end of the transmission
@@ -251,7 +285,6 @@ void ls(int s, char *reply){
 
 void mk_dir(int s, char *arg1, char *reply){
 	/* Check if the directory already exists */
-	printf("Directory Name: %s\n", arg1);
 	DIR* dir = opendir(arg1);
 	if(dir){ // Dir already exists
 		printf("Directory already exists\n");
@@ -302,7 +335,6 @@ void rm_dir(int s, char *arg1, char *reply){
 	// Get confirmation of delete from client	
 	bzero((char *)&buffer, sizeof(buffer));
 	recv_fn(s, buffer);
-	printf("Got the confirmation: %s\n", buffer);
 
 	if(strcmp(buffer, "Yes") == 0){ // Delete the dir
 		if(rmdir(arg1) >= 0){
@@ -314,6 +346,7 @@ void rm_dir(int s, char *arg1, char *reply){
 }
 
 void download(int s, char *filename){
+	int length;
     FILE *file;
     char md5[BUFSIZ];
     char file_size[BUFSIZ];
@@ -342,7 +375,13 @@ void download(int s, char *filename){
 
         //Reads the entire file into a buffer
         while(remaining > 0){
-            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+			if(remaining > BUFSIZ){
+				length = BUFSIZ;
+			} else {
+				length = remaining;
+			}
+
+            int count = fread(file_buf, sizeof(char), length, file);
             if(count < 0){
                 perror("fread error");
                 return;
@@ -350,13 +389,19 @@ void download(int s, char *filename){
             remaining -= count;
 
             //send the current portion of the file
-            send_fn(s, file_buf);
+			if(send(s, file_buf, length, 0)==-1){
+				printf("Server response error");
+				return;
+			}
+
+    		bzero((char *)&file_buf, sizeof(file_buf));
         }
 
     } else{ //If file doesnt exist return -1
         sprintf(md5, "-1");
         send_fn(s, md5);
     }
+
     bzero((char *)&md5, sizeof(md5));
 }
 
@@ -376,26 +421,34 @@ void upload(int s, char *filename){
         return;
     }
 
-    int file_remaining, written;
-    sscanf(response, "%d", &file_remaining);
+    int remaining, written;
+    sscanf(response, "%d", &remaining);
     FILE *wr = fopen(filename, "w+");
-    int file_size = file_remaining;
+    int file_size = remaining;
+	int length;
 
     //Gets the time interval initial value
     struct timeval t0;
     gettimeofday(&t0, 0);
 
     //Writes the file to the disk portion by portion
-    while( file_remaining > 0 ){
-        if((written = recv(s, file_portion, file_remaining, 0)) == -1){
+    while( remaining > 0 ){
+		if(remaining > BUFSIZ){
+			length = BUFSIZ;
+		} else {
+			length = remaining;
+		}
+
+        if((written = recv(s, file_portion, length, 0)) == -1){
             perror("error receiving reply\n");
-            return;
+			return;
         }
 
-        file_remaining -= written;
+        remaining -= written;
 
-        //Writes the file to the disk
+        //Writes the file to the disk and zeroes the buffer
         fwrite(file_portion, sizeof(char), written, wr);
+		bzero((char *)&file_portion, sizeof(file_portion));
     }
 
     fclose(wr);

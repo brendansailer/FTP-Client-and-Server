@@ -22,12 +22,13 @@ void recv_fn(int, char*);
 void download(int, char *);
 void upload(int, char *);
 void ls(int, char*, char*);
+void head(int, char*, char*);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
 		char *host = argv[1];
 		int port = atoi(argv[2]);
-		printf("Connecting to %s on port %d", host, port);
+		printf("Connecting to %s on port %d\n", host, port);
 		client(host, port);
 	}
 	else {
@@ -62,7 +63,6 @@ void client(char* host, int port){
 		exit(1);
 	}
 
-	printf("Welcome to your first TCP client! To quit, type \'Exit\'\n");
 	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0){
 		perror("myftp: connect");
 		close(s);
@@ -82,30 +82,32 @@ void client(char* host, int port){
 		if(strcmp(command, "MKDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
 			mkdir(s, arg1, command, reply);
-			printf("End of mkdir\n");
+
 		} else if(strcmp(command, "RMDIR") == 0){
 			char *arg1 = strtok(NULL, " ");
 			rmdir(s, arg1, command);
-			printf("End of rmdir\n");
+
 		} else if(strcmp(command, "RM") == 0){
 			char *arg1 = strtok(NULL, " ");
 			rmfile(s, arg1, command);
-			printf("End of rm\n");
+
 		} else if(strcmp(command, "CD") == 0){
 			char *arg1 = strtok(NULL, " ");
 			cd(s, arg1, command);
-			printf("End of cd\n");
+
 		} else if(strcmp(command, "LS\n") == 0){
-				ls(s, command, reply);
+			ls(s, command, reply);
+
+		} else if(strcmp(command, "HEAD") == 0){
+			char *arg1 = strtok(NULL, " ");
+			head(s, command, arg1);
+
         } else if(strcmp(command, "DN") == 0){
             download(s, command);
+
 	    } else if(strcmp(command, "UP") == 0){
             upload(s, command);
-	    } else {
-			printf("Unknown Operation\n");
-			send_fn(s, command);
-			send_int(s, 1234);
-			printf("Got the int is: %d\n", recv_int(s));
+
 		}
 		
 		bzero((char *)&buf, sizeof(buf));
@@ -113,6 +115,28 @@ void client(char* host, int port){
 	}
 
 	close(s); 
+}
+
+void head(int s, char* command, char* arg1){
+	// Check if no file was passed
+	if(!strcmp(arg1, "") || !strcmp(arg1, "\n")){
+		printf("Please pass a file name\n");
+		return;
+	}
+	sprintf(command, "%s %s", command, arg1);
+	send_fn(s, command); //Sends the command to the server
+	
+	char buff[BUFSIZ];	
+	recv_fn(s, buff);
+	if(strcmp(buff, "-1") == 0){
+		printf("The file does not exist on the server\n");
+		return;
+	}
+	 
+	while(strcmp(buff, "-1") != 0){ // Loop over the LS data until -1 is recevied
+		printf(buff);
+		recv_fn(s, buff); // Get the size of the LS response
+  	}
 }
 
 void ls(int s, char* command, char* reply){
@@ -123,7 +147,7 @@ void ls(int s, char* command, char* reply){
 	while(strcmp(buff, "-1") != 0){ // Loop over the LS data until -1 is recevied
 		printf(buff);
 		recv_fn(s, buff); // Get the size of the LS response
-  }
+  	}
 }
 
 void rmfile(int s, char *arg1, char *command){
@@ -144,9 +168,9 @@ void rmfile(int s, char *arg1, char *command){
 	if(result == -1){
 		printf("The file does not exist on the server\n");
 		return;
-	} else{
+	} else
 		printf("Confirm delete? Yes/No: ");
-	}
+
 	bzero((char *)&buf, sizeof(buf));
 	bzero((char *)&reply, sizeof(reply));
 	
@@ -156,11 +180,11 @@ void rmfile(int s, char *arg1, char *command){
 	if(strcmp(str, "Yes") == 0){ // Send Yes
 		send_fn(s, "Yes");
 		int result = recv_int(s);
-		if(result == 0){
+
+		if(result >= 0)
 			printf("File deleted\n");
-		} else if(result == -1){
+		else if(result == -1)
 			printf("Faild to delete file\n");
-		}
 	} else { // Send No
 		printf("Delete abandoned by user!\n");
 		send_fn(s, "No");
@@ -182,13 +206,14 @@ void cd(int s, char *arg1, char *command){
 	send_fn(s, buf);
 
 	int result = recv_int(s);
-	if(result == -2){
+	
+	if(result == -2)
 		printf("The directory does not exist on the server\n");
-	} else if(result == -1){
+	else if(result == -1)
 		printf("Error in changing directory\n"); 
-  } else{
+  	else
 		printf("Changed current directory\n");
-	}
+	
 }
 
 void mkdir(int s, char *arg1, char *command, char *reply){
@@ -203,13 +228,13 @@ void mkdir(int s, char *arg1, char *command, char *reply){
 	send_fn(s, buf);
 
 	int result = recv_int(s);
-	if(result == -2){
+
+	if(result == -2)
 		printf("The directory already exists on server\n");
-	} else if(result == -1){
+	else if(result == -1)
 		printf("Error in making directory\n");
-	} else{
+	else
 		printf("The directory was successfully made\n");
-	}
 }
 
 void rmdir(int s, char *arg1, char *command){
@@ -231,9 +256,9 @@ void rmdir(int s, char *arg1, char *command){
 	} else if(response == -1){
 		printf("The directory does not exist on the server\n");
 		return;
-	} else{
+	} else
 		printf("Confirm delete? Yes/No: ");
-	}
+
 	bzero((char *)&buf, sizeof(buf));
 	bzero((char *)&reply, sizeof(reply));
 			
@@ -244,11 +269,13 @@ void rmdir(int s, char *arg1, char *command){
 		send_fn(s, "Yes");
 		
 		response = recv_int(s);
-		if(response == 1){
+		if(response == 1)
 			printf("Directory deleted\n");
-		} else if(response == -1){
+		else if(response == -1){
 			printf("Faild to delete directory\n");
+			return;
 		}
+		
 	} else { // Send No
 		printf("Delete abandoned by user!\n");
 		send_fn(s, "No");
@@ -277,6 +304,7 @@ void download(int socket, char *command){
 	//Get the md5 hash response
 	if((recv(socket, md5, sizeof(md5), 0))==-1){
 		perror("myftp: error receiving reply");
+		return;
 	}
 
     //Server returns -1 if the file cannot be found
@@ -289,26 +317,42 @@ void download(int socket, char *command){
     //Gets the size of the file
 	if((recv(socket, file_size, sizeof(file_size), 0))==-1){
 		perror("myftp: error receiving reply");
+		return;
 	}
     
     int remaining;
     sscanf(file_size, "%d", &remaining);
     int total_bytes = remaining;
     int read;
+	int length;
 
     FILE *wr = fopen(filename, "w+");
 
+	if(wr == NULL){
+		printf("CANNOT OPEN FILE\n");
+		return;
+	}
+
     //Writes the file to the disk portion by portion
     while(remaining > 0){
+		//Adjusts the length field based on remaining
+		if(remaining > BUFSIZ)
+			length = BUFSIZ;
+		else
+			length = remaining;
+
         //Gets the file data
-        if((read = recv(socket, file_portion, remaining, 0))==-1){
-		    perror("myftp: error receiving reply");
-	    }
+        if((read = recv(socket, file_portion, length, 0))==-1){
+			perror("myftp: error receiving reply");
+			return;
+		}
+
         remaining -= read;
 
         //Writes the file to the disk
         fwrite(file_portion, sizeof(char), read, wr);
-    }
+		bzero((char *)&file_portion, sizeof(file_portion));
+	}
 
     fclose(wr);
 
@@ -358,7 +402,8 @@ void upload(int socket, char *command){
         //Get the server response
 	    if((recv(socket, response, sizeof(response), 0))==-1){
 		    perror("myftp: error receiving reply");
-	    }
+			return;
+		}
 
         if(strcmp(response, "ok") != 0 ){
             perror("The server is not ready\n");
@@ -379,9 +424,17 @@ void upload(int socket, char *command){
 
         usleep(1000);
 
+		int length;
+
         //Reads the entire file into a buffer
         while( remaining > 0){
-            int count = fread(file_buf, sizeof(char), BUFSIZ, file);
+			//Adjusts the length field based on remaining
+			if(remaining > BUFSIZ)
+				length = BUFSIZ;
+			else 
+				length = remaining;
+					
+            int count = fread(file_buf, sizeof(char), length, file);
             if( count < 0 ){
                 perror("fread error");
                 return;
@@ -389,8 +442,12 @@ void upload(int socket, char *command){
             remaining -= count;
             
             //send the current portion of the file
-            send_fn(socket, file_buf);
-        }
+			if(send(socket, file_buf, length, 0)==-1){
+				printf("Server response error");
+				return;
+			}
+			bzero((char *)&file_buf, sizeof(file_buf));     
+		}
 
         fclose(file);
 
@@ -406,6 +463,7 @@ void upload(int socket, char *command){
         char throughput[BUFSIZ];
 	    if((recv(socket, throughput, sizeof(throughput), 0))==-1){
 		    perror("myftp: error receiving reply");
+			return;
 	    }
         
         //Display throughput information
@@ -414,6 +472,7 @@ void upload(int socket, char *command){
         //Gets the md5sum from the server
 	    if((recv(socket, response, sizeof(response), 0))==-1){
 		    perror("myftp: error receiving reply");
+			return;
 	    }
         
 
