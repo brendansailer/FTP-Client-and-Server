@@ -287,38 +287,30 @@ void download(int socket, char *command){
                 
     //Gets the size of the file
     int file_size = recv_int(socket);
-    printf("FILE_SIZE: %d", file_size);
-    int read;
-    int remaining = file_size;
-
-    int chunks = (BUFSIZ + file_size -1)/BUFSIZ;
+    int read = 1;
 
     FILE *wr = fopen(filename, "w+");
 
-    int reading;
     //Writes the file to the disk portion by portion
-    while(chunks > 0){
+    while(read > 0){
         //Gets the file data
-        if(remaining > BUFSIZ)
-            reading = BUFSIZ;
-        else
-            reading = remaining;
-
-        if((read = recv(socket, file_portion, reading, 0))==-1){
+        if((read = recv(socket, file_portion, sizeof(file_portion), 0))==-1){
 		    perror("myftp: error receiving reply");
             send_int(socket, -1); //Aknowledge server with error
 	    }
-        remaining -= read;
-        printf("rec: %s\n", file_portion);
+        printf("r(f): %s\n", file_portion);
+        printf("read %d\n", read);
 
         //Writes the file to the disk
-        fwrite(file_portion, sizeof(char), reading, wr);
+        fwrite(file_portion, sizeof(char), read, wr);
         bzero((char *)&file_portion, sizeof(file_portion));
         
         //Aknowledge the server
         send_int(socket, 1);
-        chunks -= 1;
     }
+
+    char buf[BUFSIZ];
+    recv_fn(socket, buf);
 
     fclose(wr);
 
