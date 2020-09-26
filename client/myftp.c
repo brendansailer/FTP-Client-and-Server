@@ -98,8 +98,9 @@ void client(char* host, int port){
 			printf("End of cd\n");
 		} else if(strcmp(command, "LS\n") == 0){
 				ls(s, command, reply);
-		} else if(strcmp(command, "LS\n") == 0){
-				head(s, command, reply);
+		} else if(strcmp(command, "HEAD") == 0){
+				char *arg1 = strtok(NULL, " ");
+				head(s, command, arg1);
         } else if(strcmp(command, "DN") == 0){
             download(s, command);
 	    } else if(strcmp(command, "UP") == 0){
@@ -118,7 +119,7 @@ void client(char* host, int port){
 	close(s); 
 }
 
-void head(int s, char* command, char* reply){
+void head(int s, char* command, char* arg1){
 	char buff[BUFSIZ];
 	send_fn(s, command); //Sends the command to the server
 	
