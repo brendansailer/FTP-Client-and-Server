@@ -18,6 +18,7 @@
 void server(int);
 void complete_request(int, char *);
 void ls(int, char *);
+void head(int, char *);
 void mk_dir(int, char *, char *);
 void rm_dir(int, char *, char*);
 void rm_file(int, char *, char*);
@@ -113,6 +114,10 @@ void complete_request(int s, char * buf){
 	char reply[BUFSIZ];
 	if(strcmp(command, "LS\n") == 0){
 		ls(s, reply);
+	
+
+	} else if(strcmp(command, "HEAD\n") == 0){
+		head(s, reply);
 
 	} else if(strcmp(command, "MKDIR") == 0){
 		char *arg1 = strtok(NULL, " \n");
@@ -212,6 +217,43 @@ void cd(int s, char *arg1, char *reply){
 	} else {
 		send_int(s, 1);
 	}
+}
+
+void head(int s, char *reply){
+	char file_buf[BUFSIZ];
+	char cwd[BUFSIZ];
+	char command[BUFSIZ];
+
+	// Get the current working directory
+	if(getcwd(cwd, sizeof(cwd)) == NULL){
+		printf("CWD error\n");
+		send_fn(s, "-1");
+	}
+
+	// Prepare the command for popen
+	sprintf(command, "head %s", cwd);
+
+	FILE *fp = popen(command, "r");
+	if(fp == NULL){
+		printf("LS error\n");
+		send_fn(s, "-1");
+		return;
+	}
+	
+	//send the current portion of the LS
+	int count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	printf(file_buf);
+	while(count > 0){
+		send_fn(s, file_buf);
+	  count = fread(file_buf, sizeof(char), BUFSIZ, fp);
+	}
+	
+	// Signal the end of the transmission
+	send_fn(s, "-1"); 
+
+	bzero((char *)&file_buf, sizeof(file_buf));
+	bzero((char *)&cwd, sizeof(cwd));
+	bzero((char *)&command, sizeof(command));
 }
 
 void ls(int s, char *reply){

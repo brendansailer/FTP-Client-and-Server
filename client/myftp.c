@@ -22,6 +22,7 @@ void recv_fn(int, char*);
 void download(int, char *);
 void upload(int, char *);
 void ls(int, char*, char*);
+void head(int, char*, char*);
 
 int main(int argc, char * argv[]){
 	if(argc == 3) {
@@ -97,6 +98,8 @@ void client(char* host, int port){
 			printf("End of cd\n");
 		} else if(strcmp(command, "LS\n") == 0){
 				ls(s, command, reply);
+		} else if(strcmp(command, "LS\n") == 0){
+				head(s, command, reply);
         } else if(strcmp(command, "DN") == 0){
             download(s, command);
 	    } else if(strcmp(command, "UP") == 0){
@@ -113,6 +116,17 @@ void client(char* host, int port){
 	}
 
 	close(s); 
+}
+
+void head(int s, char* command, char* reply){
+	char buff[BUFSIZ];
+	send_fn(s, command); //Sends the command to the server
+	
+	recv_fn(s, buff); 
+	while(strcmp(buff, "-1") != 0){ // Loop over the LS data until -1 is recevied
+		printf(buff);
+		recv_fn(s, buff); // Get the size of the LS response
+  }
 }
 
 void ls(int s, char* command, char* reply){
